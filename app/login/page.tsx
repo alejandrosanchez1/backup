@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useActionState, useEffect } from 'react'
+import { useState, useActionState, useEffect, Suspense } from 'react' // Añadido Suspense
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,8 @@ import { signIn, signUp, type AuthResult } from '@/app/actions/auth'
 
 const initialResult: AuthResult = {}
 
-export default function LoginPage() {
+// 1. Movemos toda tu lógica a un componente interno
+function LoginForm() {
   const searchParams = useSearchParams()
   const [message, setMessage] = useState<string | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
@@ -109,3 +110,17 @@ export default function LoginPage() {
     </div>
   )
 }
+
+// 2. La página principal ahora solo envuelve al formulario en Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
