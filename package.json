@@ -3,20 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
     "dev": "next dev",
-    "lint": "eslint .",
-    "start": "next start"
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "next": "15.1.6",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.45.0",
-    "lucide-react": "^0.454.0",
-    "tailwind-merge": "^3.0.0",
-    "tailwindcss-animate": "^1.0.7",
-    "clsx": "^2.1.1"
+    "lucide-react": "latest",
+    "tailwind-merge": "latest",
+    "clsx": "latest"
   }
 }
