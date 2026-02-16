@@ -1,11 +1,10 @@
-/** @type {import('next').NextConfig} */
+﻿/** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  output: 'export',      // <--- OBLIGATORIO para Capacitor
+  trailingSlash: true,   // <--- OBLIGATORIO para que encuentre los archivos CSS
   images: {
-    unoptimized: true,
+    unoptimized: true,   // <--- OBLIGATORIO (las imágenes de Next no funcionan en móvil sin esto)
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;

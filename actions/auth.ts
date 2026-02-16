@@ -1,50 +1,20 @@
-'use server'
+"use server"
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-
-export type AuthResult = { error?: string }
-
-export async function signUp(_prev: AuthResult, formData: FormData): Promise<AuthResult> {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-
-  if (!email?.trim() || !password) {
-    return { error: 'Email y contraseña son obligatorios' }
-  }
-
-  const supabase = await createClient()
-  const { error } = await supabase.auth.signUp({ email: email.trim(), password })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  redirect(
-    '/login?message=' + encodeURIComponent('Revisa tu email para confirmar la cuenta.')
-  )
+export type AuthResult = {
+  error?: string;
+  success?: boolean;
 }
 
-export async function signIn(_prev: AuthResult, formData: FormData): Promise<AuthResult> {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-
-  if (!email?.trim() || !password) {
-    return { error: 'Email y contraseña son obligatorios' }
-  }
-
-  const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  redirect('/')
+// Ahora aceptamos dos argumentos: el estado anterior y los datos del formulario
+export async function signIn(prevState: AuthResult, formData: FormData): Promise<AuthResult> {
+  console.log("Iniciando sesión con datos:", formData);
+  
+  // Aquí es donde iría la lógica real con Supabase
+  return { success: true };
 }
 
-export async function signOut() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
-  redirect('/login')
+export async function signUp(prevState: AuthResult, formData: FormData): Promise<AuthResult> {
+  console.log("Registrando usuario con datos:", formData);
+  
+  return { success: true };
 }

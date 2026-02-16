@@ -1,44 +1,25 @@
-import './globals.css'
-import type { Metadata, Viewport } from 'next'
+import './globals.css';
+import { Home, Dumbbell, Library, User } from 'lucide-react';
 
-// Configuración de metadatos para SEO y PWA
-export const metadata: Metadata = {
-  title: 'GymPro App',
-  description: 'Mi entrenador personal de gimnasio',
-  manifest: '/manifest.json', // Enlace al archivo de configuración PWA
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'GymPro App',
-  },
-  formatDetection: {
-    telephone: false,
-  },
-}
-
-// Configuración del color de la barra del navegador y zoom
-export const viewport: Viewport = {
-  themeColor: '#020617', // Coincide con tu fondo slate-950
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false, // Evita que la pantalla "baile" al escribir en el móvil
-}
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <head>
-        {/* Favicon básico */}
-        <link rel="icon" href="/favicon.ico" />
-      </head>
-      <body className="bg-slate-950 text-white min-h-screen antialiased">
-        {children}
+      <body className="bg-[#0f172a] text-white min-h-screen antialiased">
+        <main className="min-h-screen pb-24 pt-14 px-4">
+          {children}
+        </main>
+
+        {/* Barra de navegación integrada directamente aquí para evitar errores de importación */}
+        <nav className="fixed bottom-0 left-0 z-50 w-full h-20 bg-[#1a1f2e] border-t border-gray-800 pb-4">
+          <div className="grid h-full max-w-lg grid-cols-4 mx-auto">
+            <button className="flex flex-col items-center justify-center"><Home className="text-blue-500"/><span className="text-xs">Inicio</span></button>
+            <button className="flex flex-col items-center justify-center"><Dumbbell className="text-gray-400"/><span className="text-xs">Rutinas</span></button>
+            <button className="flex flex-col items-center justify-center"><Library className="text-gray-400"/><span className="text-xs">Librería</span></button>
+            <button className="flex flex-col items-center justify-center"><User className="text-gray-400"/><span className="text-xs">Perfil</span></button>
+          </div>
+        </nav>
       </body>
     </html>
-  )
+  );
 }
+

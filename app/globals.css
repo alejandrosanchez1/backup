@@ -1,1 +1,30 @@
 @import "tailwindcss";
+
+/* Evita que el usuario seleccione texto por error al mantener pulsado */
+* {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  
+  /* Permite seleccionar texto solo en inputs */
+  input, textarea {
+    user-select: text;
+  }
+  
+  /* Evita el scroll "rebotón" feo en iOS/Android si no es necesario */
+  html, body {
+    overflow: hidden;
+    height: 100%;
+    overscroll-behavior-y: none;
+  }
+  /* Evita que el usuario pueda seleccionar texto como si fuera una web (opcional) */
+body {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Suaviza el scroll en móviles */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}

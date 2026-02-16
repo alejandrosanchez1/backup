@@ -1,20 +1,32 @@
 'use client'
 
-import { useState, useActionState, useEffect, Suspense } from 'react' // Añadido Suspense
+import { useState, useActionState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { signIn, signUp, type AuthResult } from '@/app/actions/auth'
+import { signIn, signUp, type AuthResult } from '../actions/auth'
+import { Toast } from '@capacitor/toast'
 
 const initialResult: AuthResult = {}
 
-// 1. Movemos toda tu lógica a un componente interno
+// 1. Componente del Formulario
 function LoginForm() {
   const searchParams = useSearchParams()
   const [message, setMessage] = useState<string | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
+
+  // Mensaje de bienvenida al cargar
+  useEffect(() => {
+    const welcome = async () => {
+      await Toast.show({
+        text: '¡Bienvenido a la App!',
+        duration: 'short'
+      });
+    };
+    welcome();
+  }, []);
 
   useEffect(() => {
     const m = searchParams.get('message')
@@ -42,13 +54,13 @@ function LoginForm() {
   const action = isSignUp ? signUpAction : signInAction
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+      <Card className="w-full max-w-md border-slate-800 bg-slate-900 text-white">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">
             {isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-slate-400">
             {isSignUp
               ? 'Introduce tu email y contraseña para registrarte'
               : 'Introduce tu email y contraseña'}
@@ -64,8 +76,7 @@ function LoginForm() {
                 type="email"
                 placeholder="tu@email.com"
                 required
-                autoComplete="email"
-                className="h-11"
+                className="bg-slate-800 border-slate-700 h-11"
               />
             </div>
             <div className="space-y-2">
@@ -75,24 +86,23 @@ function LoginForm() {
                 name="password"
                 type="password"
                 required
-                autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                className="h-11"
+                className="bg-slate-800 border-slate-700 h-11"
               />
             </div>
             {(result?.error || message) && (
-              <p className="text-sm text-destructive">
+              <p className="text-sm text-red-400">
                 {result?.error || message}
               </p>
             )}
             <Button
               type="submit"
-              className="w-full h-11"
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700"
               disabled={pending}
             >
               {pending ? 'Espera...' : isSignUp ? 'Registrarse' : 'Entrar'}
             </Button>
           </form>
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-slate-400">
             {isSignUp ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
             <button
               type="button"
@@ -100,7 +110,7 @@ function LoginForm() {
                 setIsSignUp((v) => !v)
                 setMessage(null)
               }}
-              className="text-primary font-medium hover:underline"
+              className="text-blue-400 font-medium hover:underline"
             >
               {isSignUp ? 'Iniciar sesión' : 'Registrarse'}
             </button>
@@ -111,16 +121,15 @@ function LoginForm() {
   )
 }
 
-// 2. La página principal ahora solo envuelve al formulario en Suspense
+// 2. ÚNICO EXPORT DEFAULT DEL ARCHIVO
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Cargando...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <p className="text-white">Cargando...</p>
       </div>
     }>
       <LoginForm />
     </Suspense>
   )
 }
-

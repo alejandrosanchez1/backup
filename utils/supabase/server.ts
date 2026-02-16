@@ -1,8 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export function createClient() {
-  const cookieStore = cookies()
+export async function createClient() {
+  // En Next.js 15, cookies() es una promesa, por lo que necesitamos el await
+  const cookieStore = await cookies()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,10 +19,12 @@ export function createClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // Esto se puede ignorar si se llama desde un Server Component
+            // El método setAll puede ser llamado desde Server Components,
+            // donde las cookies no siempre se pueden modificar.
           }
         },
       },
     }
   )
 }
+

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Miapptiness</string>
+    <string name="title_activity_main">Miapptiness</string>
+    <string name="package_name">com.miapptiness.app</string>
+    <string name="custom_url_scheme">com.miapptiness.app</string>
+</resources>
