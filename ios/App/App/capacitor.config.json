@@ -1,0 +1,11 @@
+{
+	"appId": "com.miapptiness.app",
+	"appName": "Miapptiness",
+	"webDir": "out",
+	"bundledWebRuntime": false,
+	"packageClassList": [
+		"HapticsPlugin",
+		"StatusBarPlugin",
+		"ToastPlugin"
+	]
+}
