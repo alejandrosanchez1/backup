@@ -1,0 +1,9 @@
+{
+  "apps": [
+    {
+      "appId": "aca6f881",
+      "root": "backup",
+      "iosPath": "ios/App.xcodeproj"
+    }
+  ]
+}

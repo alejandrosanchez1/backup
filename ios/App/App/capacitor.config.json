@@ -2,9 +2,14 @@
 	"appId": "com.miapptiness.app",
 	"appName": "Miapptiness",
 	"webDir": "out",
-	"bundledWebRuntime": false,
+	"server": {
+		"androidScheme": "https",
+		"cleartext": true
+	},
+	"android": {},
 	"packageClassList": [
 		"HapticsPlugin",
+		"LocalNotificationsPlugin",
 		"StatusBarPlugin",
 		"ToastPlugin"
 	]

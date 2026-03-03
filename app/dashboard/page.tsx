@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '../../lib/supabase/client' 
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 export default function ClientDashboard() {
@@ -9,7 +9,6 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true)
   
   // Inicializamos el cliente de Supabase
-  const supabase = createClient()
 
   useEffect(() => {
     async function fetchRoutines() {
@@ -67,4 +66,4 @@ export default function ClientDashboard() {
       </div>
     </div>
   )
-} // <--- Esta es la llave que faltaba
+} 

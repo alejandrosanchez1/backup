@@ -1,75 +1,82 @@
 "use client"
 
-import { Input } from "@/components/ui/input"
+import { Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Check, Trash2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import type { WorkoutSet } from "@/lib/workout-context"
 
+// Usamos un tipo más flexible para evitar errores de interfaz
 interface ExerciseSetRowProps {
-  set: WorkoutSet
-  index: number
-  onUpdate: (updates: Partial<WorkoutSet>) => void
-  onToggleComplete: () => void
-  onRemove: () => void
-  showRemove: boolean
+  set: any; 
+  index: number;
+  onUpdate: (updates: any) => void;
+  onToggleComplete: () => void;
+  isSaving?: boolean;
 }
 
-export function ExerciseSetRow({ set, index, onUpdate, onToggleComplete, onRemove, showRemove }: ExerciseSetRowProps) {
+export function ExerciseSetRow({
+  set,
+  index,
+  onUpdate,
+  onToggleComplete,
+  isSaving = false,
+}: ExerciseSetRowProps) {
+  
+  const isDone = set.completed;
+
+  const handleInputChange = (field: 'weight' | 'reps', value: string) => {
+    const cleanValue = value.replace(/[^0-9.]/g, '');
+    onUpdate({ [field]: cleanValue });
+  };
+
   return (
-    <div
-      className={cn(
-        "grid grid-cols-[40px_1fr_80px_80px_48px] items-center gap-2 py-2 px-2 rounded-lg transition-colors",
-        set.completed ? "bg-primary/20" : "bg-secondary/50",
-      )}
-    >
-      <div className="flex items-center justify-center">
-        <span
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
-            set.completed ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-          )}
-        >
+    <div className={cn(
+      "grid grid-cols-[35px_1fr_75px_75px_45px] items-center gap-2 p-1.5 rounded-lg transition-all duration-200",
+      isDone ? "bg-emerald-500/10 border border-emerald-500/20" : "hover:bg-slate-800/40 border border-transparent"
+    )}>
+      
+      <div className="flex justify-center">
+        <span className={cn(
+          "text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full border",
+          isDone ? "bg-emerald-500 text-white border-emerald-500" : "text-slate-500 border-slate-700"
+        )}>
           {index + 1}
         </span>
       </div>
-      <div className="text-sm text-muted-foreground truncate">{set.previous || "—"}</div>
+
+      <div className="text-[10px] text-slate-500 italic truncate px-1">
+        {set.previous || "—"}
+      </div>
+
       <Input
         type="number"
-        placeholder="kg"
+        placeholder="0"
         value={set.weight || ""}
-        onChange={(e) => onUpdate({ weight: Number(e.target.value) })}
-        className="h-9 text-center bg-input border-0 text-foreground"
+        disabled={isDone}
+        onChange={(e) => handleInputChange('weight', e.target.value)}
+        className={cn("h-9 text-center bg-slate-900 border-slate-700 text-white", isDone && "opacity-50")}
       />
+
       <Input
         type="number"
-        placeholder="reps"
+        placeholder="0"
         value={set.reps || ""}
-        onChange={(e) => onUpdate({ reps: Number(e.target.value) })}
-        className="h-9 text-center bg-input border-0 text-foreground"
+        disabled={isDone}
+        onChange={(e) => handleInputChange('reps', e.target.value)}
+        className={cn("h-9 text-center bg-slate-900 border-slate-700 text-white", isDone && "opacity-50")}
       />
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-8 w-8 rounded-md transition-colors",
-            set.completed
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground hover:bg-muted/80",
-          )}
-          onClick={onToggleComplete}
-        >
-          <Check className="h-4 w-4" />
-        </Button>
-        {showRemove && (
+
+      <div className="flex justify-center items-center">
+        {isSaving ? (
+          <Loader2 className="h-5 w-5 animate-spin text-emerald-500/50" />
+        ) : (
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-destructive hover:bg-destructive/20"
-            onClick={onRemove}
+            className={cn("h-8 w-8", isDone ? "text-emerald-400" : "text-slate-500")}
+            onClick={onToggleComplete}
           >
-            <Trash2 className="h-3 w-3" />
+            <Check className="h-5 w-5" />
           </Button>
         )}
       </div>

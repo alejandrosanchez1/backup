@@ -1,0 +1,98 @@
+mutation SeedDatabase @transaction @auth(level: PUBLIC, insecureReason: "This operation is for seeding data and can be public for demonstration purposes.") {
+  user_insertMany(data: [
+    {
+      id: "b2d0755f-0d9c-4e89-9a74-1a3b1f2e1a3b",
+      username: "john.doe",
+      email: "john.doe@example.com",
+      firstName: "John",
+      lastName: "Doe",
+      dateOfBirth: "1990-01-15",
+      height: 180.5,
+      weight: 75.2,
+      createdAt: "2023-01-01T10:00:00Z"
+    },
+    {
+      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      username: "jane.smith",
+      email: "jane.smith@example.com",
+      firstName: "Jane",
+      lastName: "Smith",
+      dateOfBirth: "1992-05-20",
+      height: 165.0,
+      weight: 60.0,
+      createdAt: "2023-01-01T10:05:00Z"
+    }
+  ])
+  exercise_insertMany(data: [
+    {
+      id: "c0d1e2f3-a4b5-6789-0123-456789abcdef",
+      name: "Barbell Bench Press",
+      category: "Chest",
+      description: "A strength training exercise that involves pressing a barbell upwards from a supine position on a weight bench.",
+      createdAt: "2023-01-01T10:10:00Z"
+    },
+    {
+      id: "d5e6f7a8-b9c0-1234-5678-90abcdef1234",
+      name: "Squat",
+      category: "Legs",
+      description: "A strength exercise in which the trainee lowers their hips from a standing position and then stands back up.",
+      createdAt: "2023-01-01T10:15:00Z"
+    },
+    {
+      id: "e9f0a1b2-c3d4-5678-9012-345678abcdef",
+      name: "Deadlift",
+      category: "Back",
+      description: "A strength training exercise that involves lifting a barbell or dumbbells off the floor and standing up straight.",
+      createdAt: "2023-01-01T10:20:00Z"
+    }
+  ])
+  workout_insertMany(data: [
+    {
+      id: "f1a2b3c4-d5e6-7890-1234-567890abcdef",
+      userId: "b2d0755f-0d9c-4e89-9a74-1a3b1f2e1a3b",
+      workoutType: "Strength Training",
+      workoutDate: "2023-01-02",
+      durationMinutes: 60,
+      notes: "Heavy chest day.",
+      createdAt: "2023-01-02T18:00:00Z"
+    },
+    {
+      id: "g6h7i8j9-k0l1-2345-6789-0abcdef12345",
+      userId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      workoutType: "Legs",
+      workoutDate: "2023-01-03",
+      durationMinutes: 45,
+      notes: "Light leg workout.",
+      createdAt: "2023-01-03T08:30:00Z"
+    }
+  ])
+  workoutExercise_insertMany(data: [
+    {
+      id: "h1i2j3k4-l5m6-7890-1234-567890abcdef",
+      workoutId: "f1a2b3c4-d5e6-7890-1234-567890abcdef",
+      exerciseId: "c0d1e2f3-a4b5-6789-0123-456789abcdef",
+      sets: 4,
+      reps: 8,
+      weightKg: 80.0,
+      createdAt: "2023-01-02T18:05:00Z"
+    },
+    {
+      id: "m2n3o4p5-q6r7-8901-2345-67890abcdef1",
+      workoutId: "g6h7i8j9-k0l1-2345-6789-0abcdef12345",
+      exerciseId: "d5e6f7a8-b9c0-1234-5678-90abcdef1234",
+      sets: 3,
+      reps: 10,
+      weightKg: 60.0,
+      createdAt: "2023-01-03T08:35:00Z"
+    },
+    {
+      id: "q8r9s0t1-u2v3-4567-8901-234567abcdef",
+      workoutId: "f1a2b3c4-d5e6-7890-1234-567890abcdef",
+      exerciseId: "e9f0a1b2-c3d4-5678-9012-345678abcdef",
+      sets: 3,
+      reps: 5,
+      weightKg: 120.0,
+      createdAt: "2023-01-02T18:30:00Z"
+    }
+  ])
+}

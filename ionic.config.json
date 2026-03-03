@@ -1,8 +1,0 @@
-{
-    "name": "my",
-    "integrations": {
-      "capacitor": {}
-    },
-    "type": "vue"
-  }
-  

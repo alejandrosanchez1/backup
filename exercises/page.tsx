@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabaseServer';
 import ExerciseList from './components/ExerciseList';
 
 export default async function ExercisesPage() {
@@ -6,11 +6,14 @@ export default async function ExercisesPage() {
 
   // Traemos los ejercicios (tanto los globales como los del usuario)
   const { data: exercises, error } = await supabase
-    .from('custom_exercises')
-    .select('*')
-    .order('name', { ascending: true });
+  .from('all_exercises') // Asegúrate de que no haya espacios extras
+  .select('*');
 
-  if (error) return <div>Error cargando ejercicios...</div>;
+if (error) {
+  console.error("Error de Supabase:", error);
+}
+
+console.log("Ejercicios cargados:", exercises?.length);
 
   return (
     <div className="max-w-4xl mx-auto p-4">

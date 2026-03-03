@@ -1,0 +1,32 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient('https://wrjenrtnojmhianqzxlo.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyamVucnRub2ptaGlhbnF6eGxvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDU4MTYxOCwiZXhwIjoyMDg2MTU3NjE4fQ.GME1KUAeu-Z1ndUpNsQ9OFr0AnW0tcmGGU19eQG9d4U') // Usa la Service Role Key para saltar RLS
+
+async function syncLibrary() {
+  console.log("🚀 Iniciando sincronización...");
+
+  const options = {
+    method: 'GET',
+    headers: {
+      'X-RapidAPI-Key': '548d6310c0msh42c7ceec9218a20p188ac9jsn7bbd305c9603',
+      'X-RapidAPI-Host': 'exercisedb.p.rapidapi.com'
+    }
+  };
+
+  try {
+    const response = await fetch('https://exercisedb.p.rapidapi.com/exercises?limit=1300', options);
+    const exercises = await response.json();
+
+    // Insertar en Supabase (asegúrate de que la tabla 'exercises_library' exista)
+    const { error } = await supabase
+      .from('exercises_library')
+      .upsert(exercises, { onConflict: 'id' }); // Evita duplicados por ID
+
+    if (error) throw error;
+    console.log(`✅ ¡Éxito! Se han sincronizado ${exercises.length} ejercicios.`);
+  } catch (err) {
+    console.error("❌ Error:", err);
+  }
+}
+
+syncLibrary();

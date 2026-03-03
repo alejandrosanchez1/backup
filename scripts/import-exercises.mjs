@@ -66,7 +66,7 @@ async function importExercises() {
         common_mistakes: '• No controlar la respiración.\n• Realizar el movimiento con impulso.\n• Mala alineación de la columna.'
       }));
 
-      const { error } = await supabase.from('custom_exercises').insert(batch);
+      const { error } = await supabase.from('all_exercises').insert(batch);
 
       if (error) {
         console.error(`❌ Error en el lote ${i/batchSize + 1}:`, error.message);

@@ -1,30 +1,54 @@
 @import "tailwindcss";
 
-/* Evita que el usuario seleccione texto por error al mantener pulsado */
+/* 1. CONFIGURACIÓN GLOBAL */
 * {
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-  }
-  
-  /* Permite seleccionar texto solo en inputs */
-  input, textarea {
-    user-select: text;
-  }
-  
-  /* Evita el scroll "rebotón" feo en iOS/Android si no es necesario */
-  html, body {
-    overflow: hidden;
-    height: 100%;
-    overscroll-behavior-y: none;
-  }
-  /* Evita que el usuario pueda seleccionar texto como si fuera una web (opcional) */
-body {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  /* Suaviza el renderizado de fuentes en pantallas de alta densidad */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Suaviza el scroll en móviles */
+/* 2. INPUTS (Permitir selección y mejorar visibilidad) */
+input, textarea {
+  user-select: text;
+  /* Quita las flechas de los inputs de número (Chrome/Safari/Edge) */
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* Quita las flechas en Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* 3. COMPORTAMIENTO DE PANTALLA */
+html, body {
+  overscroll-behavior: none; /* Evita el efecto rebote blanco en el navegador */
+  overflow-x: hidden;
+  background-color: #020617; /* Slate-950: Asegura que el fondo sea oscuro siempre */
+}
+
 html {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
+
+/* 4. SCROLLBAR PERSONALIZADA (Como pediste) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent; /* Más limpio */
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155; /* Slate-700 */
+  border-radius: 10px;
+}
+
+/* 5. EFECTO DE PULSACIÓN (Opcional para botones) */
+.active-scale:active {
+  transform: scale(0.96);
+  transition: transform 0.1s ease;
+}
+

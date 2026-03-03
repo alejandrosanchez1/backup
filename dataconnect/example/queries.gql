@@ -1,0 +1,45 @@
+query ListAllExercises @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public as it lists general exercise information.") {
+  exercises {
+    id
+    name
+    category
+    description
+  }
+}
+
+mutation CreateNewWorkout($workoutDate: Date!, $workoutType: String!, $durationMinutes: Int!, $notes: String) @auth(level: USER) {
+  workout_insert(data: {
+    userId_expr: "auth.uid",
+    workoutDate: $workoutDate,
+    workoutType: $workoutType,
+    durationMinutes: $durationMinutes,
+    notes: $notes,
+    createdAt_expr: "request.time"
+  })
+}
+
+query GetMyGoals @auth(level: USER) {
+  goals(where: {userId: {eq_expr: "auth.uid"}}) {
+    id
+    description
+    goalType
+    targetDate
+    targetValue
+    unit
+    achievedDate
+  }
+}
+
+mutation RecordWorkoutExercise($workoutId: UUID!, $exerciseId: UUID!, $sets: Int, $reps: Int, $weightKg: Float, $distanceKm: Float, $durationMinutes: Int, $notes: String) @auth(level: USER) {
+  workoutExercise_insert(data: {
+    workoutId: $workoutId,
+    exerciseId: $exerciseId,
+    sets: $sets,
+    reps: $reps,
+    weightKg: $weightKg,
+    distanceKm: $distanceKm,
+    durationMinutes: $durationMinutes,
+    notes: $notes,
+    createdAt_expr: "request.time"
+  })
+}

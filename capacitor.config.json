@@ -1,7 +1,14 @@
 {
-    "appId": "com.miapptiness.app",
-    "appName": "Miapptiness",
-    "webDir": "out", 
-    "bundledWebRuntime": false
+  "appId": "com.miapptiness.app",
+  "appName": "Miapptiness",
+  "webDir": "out",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "buildOptions": {
+      "releaseType": "AAB"
+    }
   }
-  
+}

@@ -1,0 +1,16 @@
+connectorId: example
+generate:
+  kotlinSdk:
+    - outputDir: ..\..\android\capacitor-cordova-android-plugins\src\main\kotlin
+      package: com.google.firebase.dataconnect.generated
+    - outputDir: ..\..\android\app\src\main\kotlin
+      package: com.google.firebase.dataconnect.generated
+  swiftSdk:
+    - outputDir: ..\..\ios\FirebaseDataConnectGenerated
+      package: DataConnectGenerated
+  javascriptSdk:
+    - outputDir: ..\..\src\dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ..\..
+      react: true
+      angular: false

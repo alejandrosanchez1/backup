@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabaseServer' 
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -14,5 +14,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?message=Error al confirmar la sesión`)
+  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
 }

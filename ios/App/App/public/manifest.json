@@ -4,6 +4,8 @@
     "description": "Mi entrenador personal de gimnasio",
     "start_url": "/",
     "display": "standalone",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
     "background_color": "#111827",
     "theme_color": "#10b981",
     "icons": [
