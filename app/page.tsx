@@ -6,7 +6,7 @@ import {
   Search, Dumbbell, Home, Settings, Play as PlayIcon, Plus, 
   Trophy, X, Save, Trash2, CheckCircle, History, 
   Timer, SkipForward, Eye, Activity, Clock, LogOut, User,
-  Library, Calendar, Globe, Scale, HeartPulse,
+  Library, Calendar, Globe, Scale, HeartPulse, ChevronRight,
   PlusCircle
 } from 'lucide-react'
 import { Toast } from '@capacitor/toast'
@@ -404,8 +404,9 @@ if (!user) {
 
 return (
   <div className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans relative">
-    <main className="flex-1 overflow-y-auto bg-gray-900 pb-28">
+    < className="flex-1 overflow-y-auto bg-gray-900 pb-28">
       <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+
         {currentView === 'home' && (
           <div className="space-y-8 animate-in fade-in">
             <header className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl">
@@ -416,6 +417,31 @@ return (
                 <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20"><p className="text-[10px] text-emerald-500 uppercase font-bold">{t('streak')}</p><p className="text-xl font-bold text-emerald-400">{streak} {t('days')}</p></div>
               </div>
             </header>
+
+            <section className="space-y-4">
+              <h2 className="text-[10px] font-black uppercase text-gray-500 px-2 tracking-widest">Entrenamiento de hoy</h2>
+              <button 
+                onClick={() => 
+                  setActiveSettingsTab('routines'); 
+                  setActiveSettingsTab('general');
+                   } 
+                className="w-full bg-emerald-500 hover:bg-emerald-400 p-6 rounded-[2.5rem] flex items-center justify-between group transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="bg-black/20 p-4 rounded-2xl">
+                    <PlayIcon size={24} fill="black" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-black font-black uppercase text-lg leading-none">Empezar Rutina</p>
+                    <p className="text-black/60 text-[10px] font-bold uppercase mt-1">Selecciona tu plan del día</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-4 px-2 tracking-widest">
+                      Tienes <span className="text-black">{routines.length}</span> rutinas disponibles
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={24} className="text-black/40 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </section>
 
             {history[0] && (
               <section className="bg-gray-800/40 p-5 rounded-3xl border border-gray-700">
@@ -431,18 +457,18 @@ return (
           </div>
         )}
 
-{currentView === 'progress' && (
-  <div className="space-y-8 animate-in fade-in pb-20"> {/* Añadido pb-20 para que el botón no se corte */}
-    {/* Cabecera con Idioma */}
-    <div className="flex justify-between items-center">
-      <h1 className="text-3xl font-black uppercase tracking-tighter">{t('profile')}</h1>
-      <button 
-        onClick={() => setLang(lang === 'es' ? 'en' : 'es')} 
-        className="p-2 bg-gray-800 rounded-xl border border-gray-700 text-emerald-400"
-      >
-        <Globe size={20}/>
-      </button>
-    </div>
+        {currentView === 'progress' && (
+          <div className="space-y-8 animate-in fade-in pb-20"> {/* Añadido pb-20 para que el botón no se corte */}
+            {/* Cabecera con Idioma */}
+            <div className="flex justify-between items-center">
+              <h1 className="text-3xl font-black uppercase tracking-tighter">{t('profile')}</h1>
+              <button 
+                onClick={() => setLang(lang === 'es' ? 'en' : 'es')} 
+                className="p-2 bg-gray-800 rounded-xl border border-gray-700 text-emerald-400"
+              >
+                <Globe size={20}/>
+              </button>
+            </div>
 
     {/* --- SECCIÓN: DATOS FÍSICOS ACTUALES --- */}
     <div className="grid grid-cols-2 gap-4">
@@ -838,8 +864,10 @@ return (
           </div>
         )}
 
+      
       </div>
-    </main>
+
+    );
 
     <nav className="fixed bottom-0 left-0 right-0 z-[999] h-20 bg-[#111827] border-t border-gray-800 flex items-center justify-around px-2 shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
       <button type="button" onClick={() => setCurrentView('home')} className="flex flex-col items-center justify-center w-full h-full gap-1"><Home className={`w-6 h-6 ${currentView === 'home' ? 'text-emerald-500' : 'text-gray-500'}`} /><span className="text-[10px] font-bold uppercase">{t('home')}</span></button>
