@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { signIn, signUp, type AuthResult } from '../actions/auth'
+import { signIn, signUp, type AuthResult } from '../src/actions/auth'
 import { Toast } from '@capacitor/toast'
 
 const initialResult: AuthResult = {}

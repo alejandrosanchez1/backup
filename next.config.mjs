@@ -1,9 +1,22 @@
 ﻿/** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',      // <--- OBLIGATORIO para Capacitor
-  trailingSlash: true,   // <--- OBLIGATORIO para que encuentre los archivos CSS
+  // Para Firebase Hosting + Cloud Functions usamos output standalone
+  output: 'standalone',
+
   images: {
-    unoptimized: true,   // <--- OBLIGATORIO (las imágenes de Next no funcionan en móvil sin esto)
+    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+  },
+
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   },
 };
 
