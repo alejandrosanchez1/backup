@@ -35,8 +35,7 @@ export default function LoginPage() {
       if (error) {
         setError('Email o contraseña incorrectos')
       } else {
-        router.push('/')
-        router.refresh()
+        window.location.href = '/'
       }
     }
     setLoading(false)
