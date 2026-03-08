@@ -31,9 +31,10 @@ export default function LoginPage() {
         setSuccess('Revisa tu email para confirmar tu cuenta')
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      console.log('LOGIN RESULT:', { data, error })
       if (error) {
-        setError('Email o contraseña incorrectos')
+        setError(error.message)
       } else {
         window.location.href = '/'
       }
