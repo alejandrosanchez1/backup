@@ -1,13 +1,6 @@
 android/
 ios/
 admin/
-actions/
-app/
-components/
-lib/
-hooks/
-login/
-exercises/
 dataconnect/
 functions/
 .firebase/
