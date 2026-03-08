@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabaseServer';
-import ExerciseList from '../../features/exercises/components/ExerciseList';
+import ExerciseList from '@/src/features/exercises/components/ExerciseList';
 
 export default async function ExercisesPage() {
   const supabase = await createClient();
