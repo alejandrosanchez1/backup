@@ -1,135 +1,106 @@
 'use client'
 
-import { useState, useActionState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { signIn, signUp, type AuthResult } from '@/src/actions/auth'
-import { Toast } from '@capacitor/toast'
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import { Dumbbell } from 'lucide-react'
 
-const initialResult: AuthResult = {}
-
-// 1. Componente del Formulario
-function LoginForm() {
-  const searchParams = useSearchParams()
-  const [message, setMessage] = useState<string | null>(null)
+export default function LoginPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  // Mensaje de bienvenida al cargar
-  useEffect(() => {
-    const welcome = async () => {
-      await Toast.show({
-        text: '¡Bienvenido a la App!',
-        duration: 'short'
-      });
-    };
-    welcome();
-  }, []);
+  const handleSubmit = async () => {
+    if (!email || !password) {
+      setError('Por favor ingresa tu email y contraseña')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
 
-  useEffect(() => {
-    const m = searchParams.get('message')
-    if (m) setMessage(decodeURIComponent(m))
-  }, [searchParams])
-
-  const [signInResult, signInAction, isSignInPending] = useActionState(
-    async (_prev: AuthResult, formData: FormData) => {
-      setMessage(null)
-      return signIn(_prev, formData)
-    },
-    initialResult
-  )
-
-  const [signUpResult, signUpAction, isSignUpPending] = useActionState(
-    async (_prev: AuthResult, formData: FormData) => {
-      setMessage(null)
-      return signUp(_prev, formData)
-    },
-    initialResult
-  )
-
-  const result = isSignUp ? signUpResult : signInResult
-  const pending = isSignUp ? isSignUpPending : isSignInPending
-  const action = isSignUp ? signUpAction : signInAction
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({ email, password })
+      if (error) {
+        setError(error.message)
+      } else {
+        setSuccess('Revisa tu email para confirmar tu cuenta')
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setError('Email o contraseña incorrectos')
+      } else {
+        router.push('/')
+        router.refresh()
+      }
+    }
+    setLoading(false)
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
-      <Card className="w-full max-w-md border-slate-800 bg-slate-900 text-white">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-6">
+        <div className="text-center space-y-2">
+          <div className="bg-blue-600 p-4 rounded-full w-fit mx-auto">
+            <Dumbbell size={40} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">
             {isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
-          </CardTitle>
-          <CardDescription className="text-slate-400">
-            {isSignUp
-              ? 'Introduce tu email y contraseña para registrarte'
-              : 'Introduce tu email y contraseña'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form action={action} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="tu@email.com"
-                required
-                className="bg-slate-800 border-slate-700 h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="bg-slate-800 border-slate-700 h-11"
-              />
-            </div>
-            {(result?.error || message) && (
-              <p className="text-sm text-red-400">
-                {result?.error || message}
-              </p>
-            )}
-            <Button
-              type="submit"
-              className="w-full h-11 bg-blue-600 hover:bg-blue-700"
-              disabled={pending}
-            >
-              {pending ? 'Espera...' : isSignUp ? 'Registrarse' : 'Entrar'}
-            </Button>
-          </form>
-          <p className="text-center text-sm text-slate-400">
-            {isSignUp ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp((v) => !v)
-                setMessage(null)
-              }}
-              className="text-blue-400 font-medium hover:underline"
-            >
-              {isSignUp ? 'Iniciar sesión' : 'Registrarse'}
-            </button>
+          </h1>
+          <p className="text-slate-400 text-sm">
+            {isSignUp ? 'Introduce tu email y contraseña para registrarte' : 'Introduce tu email y contraseña'}
           </p>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+        </div>
 
-// 2. ÚNICO EXPORT DEFAULT DEL ARCHIVO
-export default function LoginPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <p className="text-white">Cargando...</p>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm text-slate-300">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="tu@email.com"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-blue-500 h-11"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-slate-300">Contraseña</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-blue-500 h-11"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          {success && <p className="text-sm text-green-400">{success}</p>}
+
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full h-11 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg font-semibold text-white transition-colors"
+          >
+            {loading ? 'Espera...' : isSignUp ? 'Registrarse' : 'Entrar'}
+          </button>
+        </div>
+
+        <p className="text-center text-sm text-slate-400">
+          {isSignUp ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
+          <button
+            onClick={() => { setIsSignUp(v => !v); setError(null); setSuccess(null) }}
+            className="text-blue-400 font-medium hover:underline"
+          >
+            {isSignUp ? 'Iniciar sesión' : 'Registrarse'}
+          </button>
+        </p>
       </div>
-    }>
-      <LoginForm />
-    </Suspense>
+    </div>
   )
 }
