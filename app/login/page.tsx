@@ -83,8 +83,7 @@ export default function LoginPage() {
           {success && <p className="text-sm text-green-400">{success}</p>}
 
           <button
-            onClick={handleSubmit}
-            disabled={loading}
+            onClick={(e) => { e.preventDefault(); handleSubmit(); }}            disabled={loading}
             className="w-full h-11 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg font-semibold text-white transition-colors"
           >
             {loading ? 'Espera...' : isSignUp ? 'Registrarse' : 'Entrar'}
