@@ -687,6 +687,10 @@ useEffect(() => {
                       <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">Días de Entrenamiento por Semana</label>
                       <input type="number" min="1" max="7" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500" value={userStats.trainingDays} onChange={e => setUserStats({...userStats, trainingDays: e.target.value})} />
                     </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">Adicionales</label>
+                      <textarea className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none h-24 focus:border-emerald-500" value={userStats.injuries} onChange={e => setUserStats({...userStats, injuries: e.target.value})} />
+                    </div>
                   </div>
                 )}
 
