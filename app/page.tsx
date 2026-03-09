@@ -824,11 +824,13 @@ useEffect(() => {
 
         {currentView === 'nutrition' && (
           <NutritionView userId={user?.id} supabase={supabase} />
-          
+        )}
+
+
           {currentView === 'admin' && (
           <AdminView supabase={supabase} />
         )}
-        
+
           {/* ── EXERCISES LIBRARY ──────────────────────────────────────── */}
           {currentView === 'exercises' && (
             <div className="space-y-6 animate-in fade-in">
