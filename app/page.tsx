@@ -7,7 +7,7 @@ import {
   Trophy, X, Save, Trash2, CheckCircle, History, 
   Timer, SkipForward, Eye, Activity, Clock, LogOut, User,
   Library, Calendar, Globe, Scale, HeartPulse, ChevronRight,
-  PlusCircle, Utensils
+  PlusCircle
 } from 'lucide-react'
 import { Toast } from '@capacitor/toast'
 import React from 'react'
@@ -17,7 +17,7 @@ import confetti from 'canvas-confetti'
 
 const translations = {
   es: {
-    home: 'Inicio', library: 'Librería', settings: 'Configuración', profile: 'Perfil', nutrition: 'Nutrición',
+    home: 'Inicio', library: 'Librería', settings: 'Configuración', profile: 'Perfil',
     welcome: 'Hola', lastWorkout: 'Último Entrenamiento', streak: 'Racha', days: 'Días',
     weight: 'Peso', height: 'Altura', myRoutines: 'Mis Rutinas', exercises: 'ejercicios',
     save: 'Guardar', general: 'General', objetivos: 'Objetivos', antropometria: 'Antropometría',
@@ -28,7 +28,7 @@ const translations = {
     composition: 'Composición', logout: 'Cerrar Sesión'
   },
   en: {
-    home: 'Home', library: 'Library', settings: 'Settings', profile: 'Profile', nutrition: 'Nutrition',
+    home: 'Home', library: 'Library', settings: 'Settings', profile: 'Profile',
     welcome: 'Hello', lastWorkout: 'Last Workout', streak: 'Streak', days: 'Days',
     weight: 'Weight', height: 'Height', myRoutines: 'My Routines', exercises: 'exercises',
     save: 'Save', general: 'General', objetivos: 'Goals', antropometria: 'Anthro',
@@ -50,7 +50,7 @@ export default function GymProApp() {
   const [user, setUser] = useState<any>(null);
   const [authEmail, setAuthEmail] = useState("");
   const [authPass, setAuthPass] = useState("");
-  const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress' | 'nutrition'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress'>('home');
   const [isSaving, setIsSaving] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [showEditRoutineModal, setShowEditRoutineModal] = useState<number | null>(null);
@@ -453,116 +453,18 @@ useEffect(() => {
     );
   }
 
-       function NutritionView({ userId, supabase }: { userId: string | undefined, supabase: any }) {
-        const [plan, setPlan] = useState<any>(null);
-        const [loading, setLoading] = useState(true);
-        const [water, setWater] = useState(0);
-
-        useEffect(() => {
-          if (!userId) return;
-          supabase.from('nutrition_plans').select('*').eq('user_id', userId).single()
-            .then(({ data }: any) => { setPlan(data); setLoading(false); });
-        }, [userId]);
-
-        const MEAL_ICONS: any = { 'Desayuno': '🌅', 'Media Mañana': '🍎', 'Almuerzo': '🍽️', 'Media Tarde': '🥗', 'Cena': '🌙' };
-        const WATER_GOAL = 8;
-
-        if (loading) return <div className="flex items-center justify-center h-40"><p className="text-gray-500 animate-pulse">Cargando plan...</p></div>;
-        if (!plan) return (
-          <div className="flex flex-col items-center justify-center h-60 space-y-4 text-center px-6">
-            <Utensils size={48} className="text-gray-700" />
-            <p className="text-gray-400 font-bold uppercase text-sm">Sin plan asignado</p>
-            <p className="text-gray-600 text-xs">Tu entrenador aún no ha asignado tu plan de nutrición</p>
-          </div>
-        );
-
-        return (
-          <div className="space-y-4 animate-in fade-in pb-28">
-            <h1 className="text-3xl font-black uppercase tracking-tighter px-2">Nutrición</h1>
-
-            {/* Contador de agua */}
-            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">💧</span>
-                  <p className="font-black uppercase text-sm text-blue-400">Agua del día</p>
-                </div>
-                <p className="text-sm font-bold text-gray-400">{water} / {WATER_GOAL} vasos</p>
-              </div>
-              <div className="flex gap-2 mb-3">
-                {Array.from({ length: WATER_GOAL }).map((_, i) => (
-                  <div key={i} onClick={() => setWater(i + 1)}
-                    className={`flex-1 h-8 rounded-lg cursor-pointer transition-all ${i < water ? 'bg-blue-500' : 'bg-gray-700'}`} />
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setWater(w => Math.min(w + 1, WATER_GOAL))}
-                  className="flex-1 bg-blue-600 hover:bg-blue-500 rounded-xl py-2 text-xs font-black uppercase">
-                  + Vaso
-                </button>
-                <button type="button" onClick={() => setWater(0)}
-                  className="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-2 text-xs font-black uppercase text-gray-400">
-                  Reset
-                </button>
-              </div>
-            </div>
-
-            {/* Comidas */}
-            {plan.meals.map((meal: any, i: number) => (
-              <div key={i} className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-                <div className="bg-gray-700/50 px-4 py-3 flex items-center gap-3">
-                  <span className="text-xl">{MEAL_ICONS[meal.name] || '🍴'}</span>
-                  <h2 className="font-black uppercase text-sm text-emerald-400">{meal.name}</h2>
-                </div>
-                <div className="p-4 space-y-3">
-                  {['protein', 'carbs', 'fat'].map((type) => meal[type]?.length > 0 && (
-                    <div key={type}>
-                      <p className="text-[10px] text-gray-500 uppercase font-black mb-2">
-                        {type === 'protein' ? '🥩 Proteína' : type === 'carbs' ? '🌾 Carbohidrato' : '🥑 Grasa'}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {meal[type].map((item: string, j: number) => (
-                          <span key={j} className="bg-gray-900 border border-gray-700 rounded-xl px-3 py-1 text-xs text-gray-300">{item}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {/* Ensaladas */}
-            {plan.salads?.length > 0 && (
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-                <div className="bg-gray-700/50 px-4 py-3 flex items-center gap-3">
-                  <span className="text-xl">🥗</span>
-                  <h2 className="font-black uppercase text-sm text-emerald-400">Ensaladas Recomendadas</h2>
-                </div>
-                <div className="p-4 space-y-3">
-                  {plan.salads.map((salad: any, i: number) => (
-                    <div key={i} className="bg-gray-900 rounded-xl p-3 border border-gray-700">
-                      <p className="font-bold text-sm text-white mb-1">{salad.name}</p>
-                      <p className="text-xs text-gray-400 mb-1">{salad.ingredients}</p>
-                      <p className="text-[10px] text-emerald-500 uppercase font-bold">{salad.benefit}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      }
-
-
+  // ── Main app ──────────────────────────────────────────────────────────────
+  return (
+    <div className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans relative">
 
       {/* FIX: nombre de elemento faltante — era "< className=..." */}
       <div className="flex-1 overflow-y-auto bg-gray-900 pb-28">
-        <div className="w-full p-4 space-y-6">
+        <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
 
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
             <div className="space-y-8 animate-in fade-in">
-              <header className="px-2 pt-2 pb-4">
+              <header className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl">
                 <h1 className="text-3xl font-bold mb-6">{t('welcome')}, {userStats.name}</h1>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700"><p className="text-[10px] text-gray-500 uppercase font-bold">{t('weight')}</p><p className="text-xl font-bold">{userStats.weight}kg</p></div>
@@ -917,10 +819,6 @@ useEffect(() => {
             </div>
           )}
 
-          {currentView === 'nutrition' && (
-            <NutritionView userId={user?.id} supabase={supabase} />
-          )}
-
           {/* ── EXERCISES LIBRARY ──────────────────────────────────────── */}
           {currentView === 'exercises' && (
             <div className="space-y-6 animate-in fade-in">
@@ -1085,9 +983,9 @@ useEffect(() => {
           <Settings className={`w-6 h-6 ${currentView === 'routines' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('settings')}</span>
         </button>
-        <button type="button" onClick={() => setCurrentView('nutrition')} className="flex flex-col items-center justify-center w-full h-full gap-1">
-          <Utensils className={`w-6 h-6 ${currentView === 'nutrition' ? 'text-emerald-500' : 'text-gray-500'}`} />
-          <span className="text-[10px] font-bold uppercase">{t('nutrition')}</span>
+        <button type="button" onClick={() => setCurrentView('exercises')} className="flex flex-col items-center justify-center w-full h-full gap-1">
+          <Library className={`w-6 h-6 ${currentView === 'exercises' ? 'text-emerald-500' : 'text-gray-500'}`} />
+          <span className="text-[10px] font-bold uppercase">{t('library')}</span>
         </button>
         <button type="button" onClick={() => setCurrentView('progress')} className="flex flex-col items-center justify-center w-full h-full gap-1">
           <User className={`w-6 h-6 ${currentView === 'progress' ? 'text-emerald-500' : 'text-gray-500'}`} />
@@ -1152,10 +1050,10 @@ useEffect(() => {
           <button onClick={() => setIsResting(false)} className="bg-white/20 p-2 rounded-full"><SkipForward /></button>
         </div>
       )}
-  
 
+    </div>
+  );
 }
-
 
 // ── ExerciseSetRow component ──────────────────────────────────────────────────
 const ExerciseSetRow = ({ index, set, onUpdate, onToggleComplete }: any) => {
