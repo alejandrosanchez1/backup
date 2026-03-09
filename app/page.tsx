@@ -459,7 +459,7 @@ useEffect(() => {
 
       {/* FIX: nombre de elemento faltante — era "< className=..." */}
       <div className="flex-1 overflow-y-auto bg-gray-900 pb-28">
-        <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+        <div className="w-full p-4 space-y-6">
 
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
