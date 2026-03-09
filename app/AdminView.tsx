@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import { User, Utensils, Dumbbell, ChevronRight, X, Save, Plus, Trash2 } from 'lucide-react'
 
 type Profile = {
@@ -31,7 +32,11 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    supabase.from('profiles').select('*').then(({ data }: any) => {
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!
+    )
+    adminSupabase.from('profiles').select('*').then(({ data }: any) => {
       setUsers(data || [])
       setLoading(false)
     })
