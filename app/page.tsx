@@ -386,7 +386,7 @@ export default function GymProApp() {
   }, [history]);
 
   // ── Login screen ──────────────────────────────────────────────────────────
-  if (!user) { redirect("/login"); }
+  if (!user) { return null; }
 
   // ── Main app ──────────────────────────────────────────────────────────────
   return (
