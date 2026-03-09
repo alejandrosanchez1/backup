@@ -13,12 +13,13 @@ import { Toast } from '@capacitor/toast'
 import React from 'react'
 import { useWorkout } from '@/lib/workout-context' 
 import NutritionView from './NutritionView'
+import AdminView from './AdminView'
 import confetti from 'canvas-confetti'
 
 
 const translations = {
   es: {
-    home: 'Inicio', library: 'Librería', settings: 'Configuración', profile: 'Perfil', nutrition: 'Nutrición',
+    home: 'Inicio', library: 'Librería', settings: 'Configuración', profile: 'Perfil', nutrition: 'Nutrición', admin: 'Admin',
     welcome: 'Hola', lastWorkout: 'Último Entrenamiento', streak: 'Racha', days: 'Días',
     weight: 'Peso', height: 'Altura', myRoutines: 'Mis Rutinas', exercises: 'ejercicios',
     save: 'Guardar', general: 'General', objetivos: 'Objetivos', antropometria: 'Antropometría',
@@ -29,7 +30,7 @@ const translations = {
     composition: 'Composición', logout: 'Cerrar Sesión'
   },
   en: {
-    home: 'Home', library: 'Library', settings: 'Settings', profile: 'Profile', nutrition: 'Nutrition',
+    home: 'Home', library: 'Library', settings: 'Settings', profile: 'Profile', nutrition: 'Nutrition', admin: 'Admin',
     welcome: 'Hello', lastWorkout: 'Last Workout', streak: 'Streak', days: 'Days',
     weight: 'Weight', height: 'Height', myRoutines: 'My Routines', exercises: 'exercises',
     save: 'Save', general: 'General', objetivos: 'Goals', antropometria: 'Anthro',
@@ -51,7 +52,7 @@ export default function GymProApp() {
   const [user, setUser] = useState<any>(null);
   const [authEmail, setAuthEmail] = useState("");
   const [authPass, setAuthPass] = useState("");
-  const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress' | 'nutrition'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress' | 'nutrition' | 'admin'>('home');
   const [isSaving, setIsSaving] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [showEditRoutineModal, setShowEditRoutineModal] = useState<number | null>(null);
@@ -70,7 +71,7 @@ export default function GymProApp() {
 
   const [userStats, setUserStats] = useState({
     name: 'Atleta', age: '25', gender: 'Hombre', weight: '75', height: '1.75', focus: [] as string[], 
-    injuries: '', dietStyle: 'Equilibrada', experienceLevel: '', trainingDays: '3',
+    injuries: '', dietStyle: 'Equilibrada', experienceLevel: '', trainingDays: '5', role: 'user',
     diameters: { humeral: '6.3', radiocubital: '5', femoral: '8.6' },
     skinfolds: { biceps: '10', triceps: '12', subscapular: '14', suprailiaco: '15', abdominal: '19', muslo: '15', pierna: '15', pectoral: '5' },
     perimeters: { thorax: '91', abdomen: '69', cadera: '96', bicepsR: '26', bicepsC: '29', muslo: '60', pantorrilla: '33' },
@@ -245,7 +246,8 @@ useEffect(() => {
       diameters: data.measurements?.diameters || prev.diameters, 
       skinfolds: data.measurements?.skinfolds || prev.skinfolds, 
       perimeters: data.measurements?.perimeters || prev.perimeters, 
-      results: data.measurements?.results || prev.results 
+      results: data.measurements?.results || prev.results,
+      role: data.role || 'user',
     }));
   };
 
@@ -820,9 +822,13 @@ useEffect(() => {
             </div>
           )}
 
-{currentView === 'nutrition' && (
-  <NutritionView userId={user?.id} supabase={supabase} />
-)}
+        {currentView === 'nutrition' && (
+          <NutritionView userId={user?.id} supabase={supabase} />
+          
+          {currentView === 'admin' && (
+          <AdminView supabase={supabase} />
+        )}
+        
           {/* ── EXERCISES LIBRARY ──────────────────────────────────────── */}
           {currentView === 'exercises' && (
             <div className="space-y-6 animate-in fade-in">
@@ -991,6 +997,12 @@ useEffect(() => {
           <Utensils className={`w-6 h-6 ${currentView === 'nutrition' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('nutrition')}</span>
         </button>
+        {userStats.role === 'admin' && (
+          <button type="button" onClick={() => setCurrentView('admin')} className="flex flex-col items-center justify-center w-full h-full gap-1">
+            <Settings className={`w-6 h-6 ${currentView === 'admin' ? 'text-emerald-500' : 'text-gray-500'}`} />
+            <span className="text-[10px] font-bold uppercase">Admin</span>
+          </button>
+        )}
         <button type="button" onClick={() => setCurrentView('progress')} className="flex flex-col items-center justify-center w-full h-full gap-1">
           <User className={`w-6 h-6 ${currentView === 'progress' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('profile')}</span>
