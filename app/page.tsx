@@ -1,5 +1,4 @@
 'use client'
-import { redirect } from "next/navigation"
 
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -386,7 +385,21 @@ export default function GymProApp() {
   }, [history]);
 
   // ── Login screen ──────────────────────────────────────────────────────────
-  if (!user) { return null; }
+  if (!user) {
+    return (
+      <div className="h-screen bg-gray-900 flex items-center justify-center p-6 text-center">
+        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700 w-full max-w-md space-y-6">
+          <div className="bg-emerald-500 p-4 rounded-full w-fit mx-auto"><Dumbbell size={40} className="text-white" /></div>
+          <h1 className="text-2xl font-black uppercase text-emerald-400">GymPro Login</h1>
+          <input className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none text-white" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="Email" />
+          <input type="password" title="password" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none text-white" value={authPass} onChange={e => setAuthPass(e.target.value)} placeholder="Password" />
+          <button onClick={handleLogin} disabled={isSaving} className="w-full bg-emerald-500 py-4 rounded-xl font-black uppercase text-white hover:bg-emerald-600 disabled:opacity-50">
+            {isSaving ? 'Entrando...' : 'Entrar'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── Main app ──────────────────────────────────────────────────────────────
   return (
