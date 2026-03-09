@@ -464,7 +464,7 @@ useEffect(() => {
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
             <div className="space-y-8 animate-in fade-in">
-              <header className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl">
+              <header className="px-2 pt-2 pb-4">
                 <h1 className="text-3xl font-bold mb-6">{t('welcome')}, {userStats.name}</h1>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700"><p className="text-[10px] text-gray-500 uppercase font-bold">{t('weight')}</p><p className="text-xl font-bold">{userStats.weight}kg</p></div>
