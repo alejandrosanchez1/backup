@@ -23,7 +23,7 @@ const translations = {
     save: 'Guardar', general: 'General', objetivos: 'Objetivos', antropometria: 'Antropometría',
     rutinas: 'Rutinas', fat: 'Grasa', muscle: 'Músculo', imc: 'IMC', tmb: 'TMB',
     idealWeight: 'Peso Ideal', icc: 'Cintura/Cadera', somatotype: 'Somatotipo',
-    focusAreas: 'Áreas de Enfoque', dietStyle: 'Estilo de Dieta', injuries: 'Lesiones', 
+    focusAreas: 'Áreas de Enfoque', dietStyle: 'Estilo de Dieta', Additionals: 'Adicionales', 
     createEx: 'Crear Ejercicio', search: 'Buscar...', finish: 'Finalizar', rest: 'Descanso',
     composition: 'Composición', logout: 'Cerrar Sesión'
   },
@@ -34,7 +34,7 @@ const translations = {
     save: 'Save', general: 'General', objetivos: 'Goals', antropometria: 'Anthro',
     rutinas: 'Routines', fat: 'Fat', muscle: 'Muscle', imc: 'BMI', tmb: 'BMR',
     idealWeight: 'Ideal Weight', icc: 'Waist/Hip', somatotype: 'Somatotype',
-    focusAreas: 'Focus Areas', dietStyle: 'Diet Style', injuries: 'Injuries', 
+    focusAreas: 'Focus Areas', dietStyle: 'Diet Style', Additionals: 'Adicionales', 
     createEx: 'Create Exercise', search: 'Search...', finish: 'Finish', rest: 'Rest',
     composition: 'Composition', logout: 'Log Out'
   }
@@ -465,7 +465,7 @@ export default function GymProApp() {
                 <div className="flex items-center gap-2 px-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
-                    Información de salud y preferencias
+                    Información personal y de preferencia
                   </span>
                 </div>
               </div>
