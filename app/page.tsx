@@ -166,19 +166,42 @@ export default function GymProApp() {
   }, [user, currentView]);
 
   // ── Init workout data when routine selected ───────────────────────────────
-  useEffect(() => {
-    if (activeRoutine) {
+  // DESPUÉS:
+useEffect(() => {
+    if (!activeRoutine) return;
+    const loadLastWorkout = async () => {
+      const { data: logs } = await supabase
+        .from('workout_logs')
+        .select('workout_details')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
       const d: any = {};
-      activeRoutine.exercises.forEach((ex: any) =>
-        d[ex.id] = Array.from({ length: parseInt(ex.sets) || 3 }).map(() => ({ 
-          weight: '', reps: ex.reps || '10', completed: false 
-        }))
-      );
+      activeRoutine.exercises.forEach((ex: any) => {
+        const exName = (ex.name || ex.exercise_name || '').toLowerCase();
+        let lastWeight = '';
+        let lastReps = ex.reps || '10';
+        if (logs) {
+          for (const log of logs) {
+            const found = log.workout_details?.find((wd: any) =>
+              (wd.exercise_name || '').toLowerCase() === exName
+            );
+            if (found?.sets?.length > 0) {
+              lastWeight = String(found.sets[0].weight || '');
+              lastReps = String(found.sets[0].reps || ex.reps || '10');
+              break;
+            }
+          }
+        }
+        d[ex.id] = Array.from({ length: parseInt(ex.sets) || 3 }).map(() => ({
+          weight: lastWeight, reps: lastReps, completed: false
+        }));
+      });
       setWorkoutData(d);
-      // FIX: reset timer when starting a new workout
       setWorkoutTimer(0);
       setIsActive(false);
-    }
+    };
+    loadLastWorkout();
   }, [activeRoutine]);
 
   // ── Data fetchers ─────────────────────────────────────────────────────────
