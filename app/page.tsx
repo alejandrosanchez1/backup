@@ -1050,9 +1050,8 @@ useEffect(() => {
           <button onClick={() => setIsResting(false)} className="bg-white/20 p-2 rounded-full"><SkipForward /></button>
         </div>
       )}
+  
 
-    </div>
-  );
 }
 
       function NutritionView({ userId, supabase }: { userId: string | undefined, supabase: any }) {
