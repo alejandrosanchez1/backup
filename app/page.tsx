@@ -452,12 +452,6 @@ export default function GymProApp() {
                   </div>
                 </section>
               )}
-              <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl space-y-4">
-                <h2 className="text-sm font-black uppercase text-emerald-400 flex items-center gap-2"><PlusCircle size={18}/> Adicionales</h2>
-                <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-700/50">
-                  <p className="text-gray-300 text-sm leading-relaxed italic">"{userStats.injuries || 'Sin notas adicionales'}"</p>
-                </div>
-              </div>
             </div>
           )}
 
@@ -514,6 +508,22 @@ export default function GymProApp() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 px-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+                    Información de salud y preferencias
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-4"> 
+                <button 
+                  onClick={() => supabase.auth.signOut()}
+                  className="w-full bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 py-4 rounded-3xl flex items-center justify-center gap-3 transition-all group active:scale-95"
+                >
+                  <LogOut size={18} className="text-red-500 group-hover:rotate-12 transition-transform" />
+                  <span className="text-red-500 font-black uppercase text-xs tracking-widest">{t('logout')}</span>
+                </button>
+                <p className="text-center text-[10px] text-gray-600 uppercase font-bold mt-6 tracking-[0.2em]">
                   Versión 1.0.2 • FitApp
                 </p>
               </div>
