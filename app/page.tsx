@@ -145,12 +145,39 @@ export default function GymProApp() {
   }, [isActive]);
 
   // ── Rest timer ────────────────────────────────────────────────────────────
+  // ── Rest timer ────────────────────────────────────────────────────────────
+const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.frequency.value = 880;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.8);
+    } catch (e) {}
+  };
+
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      }, []);
+
   useEffect(() => {
     let interval: any;
     if (isResting && restTimer > 0) {
       interval = setInterval(() => setRestTimer((s) => s - 1), 1000);
     } else if (restTimer <= 0 && isResting) {
       setIsResting(false);
+      playBeep();
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('¡Descanso terminado!', { body: 'Es hora de tu siguiente serie 💪', silent: false });
+      }
     }
     return () => clearInterval(interval);
   }, [isResting, restTimer]);
