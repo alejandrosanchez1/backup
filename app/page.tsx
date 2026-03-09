@@ -7,17 +7,18 @@ import {
   Trophy, X, Save, Trash2, CheckCircle, History, 
   Timer, SkipForward, Eye, Activity, Clock, LogOut, User,
   Library, Calendar, Globe, Scale, HeartPulse, ChevronRight,
-  PlusCircle
+  PlusCircle, Utensils
 } from 'lucide-react'
 import { Toast } from '@capacitor/toast'
 import React from 'react'
 import { useWorkout } from '@/lib/workout-context' 
+import NutritionView from './NutritionView'
 import confetti from 'canvas-confetti'
 
 
 const translations = {
   es: {
-    home: 'Inicio', library: 'Librería', settings: 'Configuración', profile: 'Perfil',
+    home: 'Inicio', library: 'Librería', settings: 'Configuración', profile: 'Perfil', nutrition: 'Nutrición',
     welcome: 'Hola', lastWorkout: 'Último Entrenamiento', streak: 'Racha', days: 'Días',
     weight: 'Peso', height: 'Altura', myRoutines: 'Mis Rutinas', exercises: 'ejercicios',
     save: 'Guardar', general: 'General', objetivos: 'Objetivos', antropometria: 'Antropometría',
@@ -28,7 +29,7 @@ const translations = {
     composition: 'Composición', logout: 'Cerrar Sesión'
   },
   en: {
-    home: 'Home', library: 'Library', settings: 'Settings', profile: 'Profile',
+    home: 'Home', library: 'Library', settings: 'Settings', profile: 'Profile', nutrition: 'Nutrition',
     welcome: 'Hello', lastWorkout: 'Last Workout', streak: 'Streak', days: 'Days',
     weight: 'Weight', height: 'Height', myRoutines: 'My Routines', exercises: 'exercises',
     save: 'Save', general: 'General', objetivos: 'Goals', antropometria: 'Anthro',
@@ -50,7 +51,7 @@ export default function GymProApp() {
   const [user, setUser] = useState<any>(null);
   const [authEmail, setAuthEmail] = useState("");
   const [authPass, setAuthPass] = useState("");
-  const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress' | 'nutrition'>('home');
   const [isSaving, setIsSaving] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [showEditRoutineModal, setShowEditRoutineModal] = useState<number | null>(null);
@@ -819,6 +820,9 @@ useEffect(() => {
             </div>
           )}
 
+{currentView === 'nutrition' && (
+  <NutritionView userId={user?.id} supabase={supabase} />
+)}
           {/* ── EXERCISES LIBRARY ──────────────────────────────────────── */}
           {currentView === 'exercises' && (
             <div className="space-y-6 animate-in fade-in">
@@ -983,9 +987,9 @@ useEffect(() => {
           <Settings className={`w-6 h-6 ${currentView === 'routines' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('settings')}</span>
         </button>
-        <button type="button" onClick={() => setCurrentView('exercises')} className="flex flex-col items-center justify-center w-full h-full gap-1">
-          <Library className={`w-6 h-6 ${currentView === 'exercises' ? 'text-emerald-500' : 'text-gray-500'}`} />
-          <span className="text-[10px] font-bold uppercase">{t('library')}</span>
+        <button type="button" onClick={() => setCurrentView('nutrition')} className="flex flex-col items-center justify-center w-full h-full gap-1">
+          <Utensils className={`w-6 h-6 ${currentView === 'nutrition' ? 'text-emerald-500' : 'text-gray-500'}`} />
+          <span className="text-[10px] font-bold uppercase">{t('nutrition')}</span>
         </button>
         <button type="button" onClick={() => setCurrentView('progress')} className="flex flex-col items-center justify-center w-full h-full gap-1">
           <User className={`w-6 h-6 ${currentView === 'progress' ? 'text-emerald-500' : 'text-gray-500'}`} />
