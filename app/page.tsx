@@ -778,7 +778,7 @@ export default function GymProApp() {
                       {ex.gifUrl && <img src={ex.gifUrl} className="w-full h-full object-cover" alt="" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-black text-sm capitalize truncate">{ex.name}</h4>
+                      <h4 className="font-black text-sm capitalize break-words">{ex.name}</h4>
                       <p className="text-[10px] text-gray-500 uppercase font-bold">{ex.target}</p>
                     </div>
                     {showEditRoutineModal && (
@@ -807,7 +807,7 @@ export default function GymProApp() {
                 <div className="flex justify-between items-center mb-4">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1">Entrenamiento Activo</p>
-                    <h2 className="text-3xl font-black tracking-tighter uppercase text-white truncate max-w-[220px]">
+                    <h2 className="text-3xl font-black tracking-tighter uppercase text-white break-words">
                       {activeRoutine.name}
                     </h2>
                   </div>
@@ -866,7 +866,7 @@ export default function GymProApp() {
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-xl font-black text-white uppercase tracking-tight truncate">
+                          <h3 className="text-xl font-black text-white uppercase tracking-tight break-words">
                             {exercise.name || 'Ejercicio'}
                           </h3>
                           <div className="flex gap-2 mt-1">
