@@ -991,12 +991,6 @@ useEffect(() => {
           <Home className={`w-6 h-6 ${currentView === 'home' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('home')}</span>
         </button>
-        {userStats.role === 'admin' && (
-            <button type="button" onClick={() => setCurrentView('routines')} className="flex flex-col items-center justify-center w-full h-full gap-1">
-              <Settings className={`w-6 h-6 ${currentView === 'routines' ? 'text-emerald-500' : 'text-gray-500'}`} />
-              <span className="text-[10px] font-bold uppercase">{t('settings')}</span>
-            </button>
-          )}
         <button type="button" onClick={() => setCurrentView('nutrition')} className="flex flex-col items-center justify-center w-full h-full gap-1">
           <Utensils className={`w-6 h-6 ${currentView === 'nutrition' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('nutrition')}</span>
