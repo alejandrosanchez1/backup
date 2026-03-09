@@ -7,7 +7,7 @@ import {
   Trophy, X, Save, Trash2, CheckCircle, History, 
   Timer, SkipForward, Eye, Activity, Clock, LogOut, User,
   Library, Calendar, Globe, Scale, HeartPulse, ChevronRight,
-  PlusCircle
+  PlusCircle, Utensils
 } from 'lucide-react'
 import { Toast } from '@capacitor/toast'
 import React from 'react'
@@ -17,7 +17,7 @@ import confetti from 'canvas-confetti'
 
 const translations = {
   es: {
-    home: 'Inicio', library: 'Librería', settings: 'Configuración', profile: 'Perfil',
+    home: 'Inicio', library: 'Librería', settings: 'Configuración', profile: 'Perfil', nutrition: 'Nutrición',
     welcome: 'Hola', lastWorkout: 'Último Entrenamiento', streak: 'Racha', days: 'Días',
     weight: 'Peso', height: 'Altura', myRoutines: 'Mis Rutinas', exercises: 'ejercicios',
     save: 'Guardar', general: 'General', objetivos: 'Objetivos', antropometria: 'Antropometría',
@@ -28,7 +28,7 @@ const translations = {
     composition: 'Composición', logout: 'Cerrar Sesión'
   },
   en: {
-    home: 'Home', library: 'Library', settings: 'Settings', profile: 'Profile',
+    home: 'Home', library: 'Library', settings: 'Settings', profile: 'Profile', nutrition: 'Nutrition',
     welcome: 'Hello', lastWorkout: 'Last Workout', streak: 'Streak', days: 'Days',
     weight: 'Weight', height: 'Height', myRoutines: 'My Routines', exercises: 'exercises',
     save: 'Save', general: 'General', objetivos: 'Goals', antropometria: 'Anthro',
@@ -50,7 +50,7 @@ export default function GymProApp() {
   const [user, setUser] = useState<any>(null);
   const [authEmail, setAuthEmail] = useState("");
   const [authPass, setAuthPass] = useState("");
-  const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress' | 'nutrition'>('home');
   const [isSaving, setIsSaving] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [showEditRoutineModal, setShowEditRoutineModal] = useState<number | null>(null);
@@ -453,6 +453,56 @@ useEffect(() => {
     );
   }
 
+      function NutritionView({ userId, supabase }: { userId: string | undefined, supabase: any }) {
+      const [plan, setPlan] = useState<any>(null);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        if (!userId) return;
+        supabase.from('nutrition_plans').select('*').eq('user_id', userId).single()
+          .then(({ data }: any) => { setPlan(data); setLoading(false); });
+      }, [userId]);
+
+      const MEAL_ICONS: any = { 'Desayuno': '🌅', 'Media Mañana': '🍎', 'Almuerzo': '🍽️', 'Media Tarde': '🥗', 'Cena': '🌙' };
+
+      if (loading) return <div className="flex items-center justify-center h-40"><p className="text-gray-500 animate-pulse">Cargando plan...</p></div>;
+      if (!plan) return (
+        <div className="flex flex-col items-center justify-center h-60 space-y-4 text-center px-6">
+          <Utensils size={48} className="text-gray-700" />
+          <p className="text-gray-400 font-bold uppercase text-sm">Sin plan asignado</p>
+          <p className="text-gray-600 text-xs">Tu entrenador aún no ha asignado tu plan de nutrición</p>
+        </div>
+      );
+
+      return (
+        <div className="space-y-4 animate-in fade-in pb-28">
+          <h1 className="text-3xl font-black uppercase tracking-tighter px-2">Nutrición</h1>
+          {plan.meals.map((meal: any, i: number) => (
+            <div key={i} className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+              <div className="bg-gray-700/50 px-4 py-3 flex items-center gap-3">
+                <span className="text-xl">{MEAL_ICONS[meal.name] || '🍴'}</span>
+                <h2 className="font-black uppercase text-sm text-emerald-400">{meal.name}</h2>
+              </div>
+              <div className="p-4 space-y-3">
+                {['protein', 'carbs', 'fat'].map((type) => meal[type]?.length > 0 && (
+                  <div key={type}>
+                    <p className="text-[10px] text-gray-500 uppercase font-black mb-2">
+                      {type === 'protein' ? '🥩 Proteína' : type === 'carbs' ? '🌾 Carbohidrato' : '🥑 Grasa'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {meal[type].map((item: string, j: number) => (
+                        <span key={j} className="bg-gray-900 border border-gray-700 rounded-xl px-3 py-1 text-xs text-gray-300">{item}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
   // ── Main app ──────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans relative">
@@ -819,6 +869,10 @@ useEffect(() => {
             </div>
           )}
 
+          {currentView === 'nutrition' && (
+            <NutritionView userId={user?.id} supabase={supabase} />
+          )}
+
           {/* ── EXERCISES LIBRARY ──────────────────────────────────────── */}
           {currentView === 'exercises' && (
             <div className="space-y-6 animate-in fade-in">
@@ -983,9 +1037,9 @@ useEffect(() => {
           <Settings className={`w-6 h-6 ${currentView === 'routines' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('settings')}</span>
         </button>
-        <button type="button" onClick={() => setCurrentView('exercises')} className="flex flex-col items-center justify-center w-full h-full gap-1">
-          <Library className={`w-6 h-6 ${currentView === 'exercises' ? 'text-emerald-500' : 'text-gray-500'}`} />
-          <span className="text-[10px] font-bold uppercase">{t('library')}</span>
+        <button type="button" onClick={() => setCurrentView('nutrition')} className="flex flex-col items-center justify-center w-full h-full gap-1">
+          <Utensils className={`w-6 h-6 ${currentView === 'nutrition' ? 'text-emerald-500' : 'text-gray-500'}`} />
+          <span className="text-[10px] font-bold uppercase">{t('nutrition')}</span>
         </button>
         <button type="button" onClick={() => setCurrentView('progress')} className="flex flex-col items-center justify-center w-full h-full gap-1">
           <User className={`w-6 h-6 ${currentView === 'progress' ? 'text-emerald-500' : 'text-gray-500'}`} />
