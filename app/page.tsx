@@ -627,7 +627,7 @@ export default function GymProApp() {
                       <input className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500" value={userStats.dietStyle} onChange={e => setUserStats({...userStats, dietStyle: e.target.value})} />
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">{t('injuries')}</label>
+                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">{t('Additionals')}</label>
                       <textarea className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none h-24 focus:border-emerald-500" value={userStats.injuries} onChange={e => setUserStats({...userStats, injuries: e.target.value})} />
                     </div>
                   </div>
