@@ -452,6 +452,24 @@ export default function GymProApp() {
                   </div>
                 </section>
               )}
+
+              <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl space-y-4">
+                <h2 className="text-sm font-black uppercase text-emerald-400 flex items-center gap-2">
+                  <PlusCircle size={18}/> Adicionales
+                </h2>
+                <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-700/50">
+                  <p className="text-gray-300 text-sm leading-relaxed italic">
+                    "{userStats.injuries || 'Sin notas adicionales'}"
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 px-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+                    Información de salud y preferencias
+                  </span>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -498,22 +516,6 @@ export default function GymProApp() {
                 </div>
               </div>
 
-              <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl space-y-4">
-                <h2 className="text-sm font-black uppercase text-emerald-400 flex items-center gap-2">
-                  <PlusCircle size={18}/> Adicionales
-                </h2>
-                <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-700/50">
-                  <p className="text-gray-300 text-sm leading-relaxed italic">
-                    "{userStats.injuries || 'Sin notas adicionales'}"
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 px-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
-                    Información de salud y preferencias
-                  </span>
-                </div>
-              </div>
 
               <div className="pt-4"> 
                 <button 
