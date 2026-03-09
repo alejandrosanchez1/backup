@@ -69,7 +69,7 @@ export default function GymProApp() {
 
   const [userStats, setUserStats] = useState({
     name: 'Atleta', age: '25', gender: 'Hombre', weight: '75', height: '1.75', focus: [] as string[], 
-    injuries: '', dietStyle: 'Equilibrada',
+    injuries: '', dietStyle: 'Equilibrada', experienceLevel: '', trainingDays: '3',
     diameters: { humeral: '6.3', radiocubital: '5', femoral: '8.6' },
     skinfolds: { biceps: '10', triceps: '12', subscapular: '14', suprailiaco: '15', abdominal: '19', muslo: '15', pierna: '15', pectoral: '5' },
     perimeters: { thorax: '91', abdomen: '69', cadera: '96', bicepsR: '26', bicepsC: '29', muslo: '60', pantorrilla: '33' },
@@ -240,6 +240,7 @@ useEffect(() => {
       height: data.height || prev.height, age: data.age?.toString() || prev.age, 
       gender: data.gender || prev.gender, focus: data.focus_areas || [], 
       dietStyle: data.diet_style || '', injuries: data.injuries || '', 
+      experienceLevel: data.experience_level || '', trainingDays: data.training_days?.toString() || '3',
       diameters: data.measurements?.diameters || prev.diameters, 
       skinfolds: data.measurements?.skinfolds || prev.skinfolds, 
       perimeters: data.measurements?.perimeters || prev.perimeters, 
@@ -321,6 +322,7 @@ useEffect(() => {
       id: user.id, full_name: userStats.name, weight: userStats.weight, height: userStats.height, 
       age: parseInt(userStats.age), gender: userStats.gender, focus_areas: userStats.focus, 
       diet_style: userStats.dietStyle, injuries: userStats.injuries, 
+      experience_level: userStats.experienceLevel, training_days: parseInt(userStats.trainingDays) || 3,
       measurements: { diameters: userStats.diameters, skinfolds: userStats.skinfolds, perimeters: userStats.perimeters, results: userStats.results }, 
       updated_at: new Date().toISOString() 
     });
@@ -467,7 +469,7 @@ useEffect(() => {
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700"><p className="text-[10px] text-gray-500 uppercase font-bold">{t('weight')}</p><p className="text-xl font-bold">{userStats.weight}kg</p></div>
                   <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700"><p className="text-[10px] text-gray-500 uppercase font-bold">{t('height')}</p><p className="text-xl font-bold">{userStats.height}m</p></div>
-                  <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20"><p className="text-[10px] text-emerald-500 uppercase font-bold">{t('streak')}</p><p className="text-xl font-bold text-emerald-400">{streak} {t('days')}</p></div>
+                  <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20"><p className="text-[10px] text-emerald-500 uppercase font-bold">{t('streak')}</p><p className="text-xl font-bold text-emerald-400">{streak} / {userStats.trainingDays} {t('days')}</p></div>
                 </div>
               </header>
 
@@ -673,12 +675,17 @@ useEffect(() => {
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">{t('dietStyle')}</label>
-                      <input className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500" value={userStats.dietStyle} onChange={e => setUserStats({...userStats, dietStyle: e.target.value})} />
+                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">Nivel de Experiencia</label>
+                      <select className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500 text-white" value={userStats.experienceLevel} onChange={e => setUserStats({...userStats, experienceLevel: e.target.value})}>
+                        <option value="">Seleccionar</option>
+                        <option value="Principiante">Principiante</option>
+                        <option value="Intermedio">Intermedio</option>
+                        <option value="Avanzado">Avanzado</option>
+                      </select>
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">{t('Additionals')}</label>
-                      <textarea className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none h-24 focus:border-emerald-500" value={userStats.injuries} onChange={e => setUserStats({...userStats, injuries: e.target.value})} />
+                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">Días de Entrenamiento por Semana</label>
+                      <input type="number" min="1" max="7" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500" value={userStats.trainingDays} onChange={e => setUserStats({...userStats, trainingDays: e.target.value})} />
                     </div>
                   </div>
                 )}
