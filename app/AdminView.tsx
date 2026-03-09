@@ -31,13 +31,14 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    fetch('/api/admin/users')
-  .then(res => res.json())
-  .then(data => {
-    setUsers(data || [])
-    setLoading(false)
-  })
-  }, [])
+  supabase
+    .from('profiles')
+    .select('*')
+    .then(({ data }: any) => {
+      setUsers(data || [])
+      setLoading(false)
+    })
+}, [])
 
   const loadUserNutrition = async (user: Profile) => {
     setSelectedUser(user)
