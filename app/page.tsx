@@ -875,7 +875,6 @@ useEffect(() => {
           {/* ── ACTIVE WORKOUT ─────────────────────────────────────────── */}
           {currentView === 'workout' && activeRoutine && (
             <div className="max-w-2xl mx-auto w-full space-y-8 animate-in slide-in-from-bottom-10 pb-32">
-              
               <div className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-xl border-b border-gray-800/50 px-6 py-6 rounded-b-[2.5rem] shadow-2xl">
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex-1 min-w-0 pr-3">
@@ -905,6 +904,8 @@ useEffect(() => {
                     {isActive ? t('finish') : 'INICIAR'}
                   </button>
                 </div>
+              </div>
+
 
               <div className="px-4 space-y-8 pb-32">
                 {activeRoutine.exercises.map((exercise: any) => {
