@@ -58,7 +58,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
     const { data: nutrition } = await supabase.from('nutrition_plans').select('*').eq('user_id', user.id).single()
     if (nutrition?.meals) setMeals(nutrition.meals)
     else setMeals(MEAL_NAMES.map(name => ({ name, protein: [], carbs: [], fat: [] })))
-    const { data: ruts } = await supabase.from('routines').select('*').eq('user_id', user.id)
+    const { data: ruts } = await supabase.from('routines').select('*, routine_exercises(*)').eq('user_id', user.id)
     setRoutines(ruts || [])
   }
 
@@ -219,7 +219,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
               <div key={routine.id} className="bg-gray-800 rounded-2xl border border-gray-700 p-4 flex items-center justify-between">
                 <div>
                   <p className="font-black text-sm">{routine.name}</p>
-                  <p className="text-[10px] text-gray-500 uppercase">{routine.exercises?.length || 0} ejercicios</p>
+                  <p className="text-[10px] text-gray-500 uppercase">{routine.routine_exercises?.length || 0} ejercicios</p>
                 </div>
                 <button onClick={() => deleteRoutine(routine.id)} className="bg-red-500/20 border border-red-500/50 p-2 rounded-xl text-red-400"><Trash2 size={16} /></button>
               </div>
