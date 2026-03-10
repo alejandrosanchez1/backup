@@ -877,41 +877,34 @@ useEffect(() => {
             <div className="max-w-2xl mx-auto w-full space-y-8 animate-in slide-in-from-bottom-10 pb-32">
               
               <div className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-xl border-b border-gray-800/50 px-6 py-6 rounded-b-[2.5rem] shadow-2xl">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex-1 min-w-0 pr-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1">Entrenamiento Activo</p>
-                    <h2 className="text-3xl font-black tracking-tighter uppercase text-white break-words">
+                    <h2 className="text-2xl font-black tracking-tighter uppercase text-white break-words">
                       {activeRoutine.name}
                     </h2>
                   </div>
-                  <button 
-                    onClick={() => { if(confirm('¿Deseas finalizar el entrenamiento?')) finishWorkout() }} 
-                    className="px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest bg-red-500 hover:bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.2)] active:scale-95 transition-all text-white"
-                  >
-                    {t('finish')}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between bg-gray-800/50 p-3 rounded-2xl border border-gray-700/50">
-                  <div className="flex items-center gap-3 px-2">
-                    <div className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
-                    <span className="text-3xl font-mono font-black text-white leading-none">
-                      {formatTime(workoutTimer)}
-                    </span>
+                  <div className="flex flex-col gap-2 items-end">
+                    <button
+                      onClick={() => setIsActive(!isActive)}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs transition-all ${
+                        isActive ? 'bg-gray-700 text-gray-300 border border-gray-600' : 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20'
+                      }`}
+                    >
+                      {isActive ? <><span>⏸</span> PAUSAR</> : <><span>▶</span> INICIAR</>}
+                    </button>
+                    <button
+                      onClick={() => { if(confirm('¿Deseas finalizar el entrenamiento?')) finishWorkout() }}
+                      className="px-5 py-2.5 rounded-xl font-black uppercase text-xs bg-red-500 hover:bg-red-600 active:scale-95 transition-all text-white"
+                    >
+                      {t('finish')}
+                    </button>
+                    <div className="flex items-center gap-2 px-1">
+                      <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
+                      <span className="text-2xl font-mono font-black text-white leading-none">{formatTime(workoutTimer)}</span>
+                    </div>
                   </div>
-                  <button 
-                    onClick={() => setIsActive(!isActive)}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs transition-all ${
-                      isActive 
-                      ? 'bg-gray-700 text-gray-300 border border-gray-600' 
-                      : 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20'
-                    }`}
-                  >
-                    {isActive ? <><span className="text-base">⏸</span> PAUSAR</> : <><span className="text-base">▶</span> INICIAR</>}
-                  </button>
                 </div>
-              </div>
-
               <div className="px-4 space-y-8 pb-32">
                 {activeRoutine.exercises.map((exercise: any) => {
                   const numSets = parseInt(exercise.sets) || 3;
