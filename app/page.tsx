@@ -905,6 +905,8 @@ useEffect(() => {
                     </div>
                   </div>
                 </div>
+              </div>
+              
               <div className="px-4 space-y-8 pb-32">
                 {activeRoutine.exercises.map((exercise: any) => {
                   const numSets = parseInt(exercise.sets) || 3;
