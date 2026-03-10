@@ -883,30 +883,29 @@ useEffect(() => {
                     <h2 className="text-2xl font-black tracking-tighter uppercase text-white break-words">
                       {activeRoutine.name}
                     </h2>
-                  </div>
-                  <div className="flex flex-col gap-2 items-end">
-                    <button
-                      onClick={() => setIsActive(!isActive)}
-                      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs transition-all ${
-                        isActive ? 'bg-gray-700 text-gray-300 border border-gray-600' : 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20'
-                      }`}
-                    >
-                      {isActive ? <><span>⏸</span> PAUSAR</> : <><span>▶</span> INICIAR</>}
-                    </button>
-                    <button
-                      onClick={() => { if(confirm('¿Deseas finalizar el entrenamiento?')) finishWorkout() }}
-                      className="px-5 py-2.5 rounded-xl font-black uppercase text-xs bg-red-500 hover:bg-red-600 active:scale-95 transition-all text-white"
-                    >
-                      {t('finish')}
-                    </button>
-                    <div className="flex items-center gap-2 px-1">
+                    <div className="flex items-center gap-2 mt-2">
                       <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
                       <span className="text-2xl font-mono font-black text-white leading-none">{formatTime(workoutTimer)}</span>
                     </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      if (!isActive) {
+                        setIsActive(true)
+                      } else {
+                        if(confirm('¿Deseas finalizar el entrenamiento?')) finishWorkout()
+                      }
+                    }}
+                    className={`px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-all text-white ${
+                      isActive
+                        ? 'bg-red-500 hover:bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
+                        : 'bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20'
+                    }`}
+                  >
+                    {isActive ? t('finish') : 'INICIAR'}
+                  </button>
                 </div>
-              </div>
-              
+
               <div className="px-4 space-y-8 pb-32">
                 {activeRoutine.exercises.map((exercise: any) => {
                   const numSets = parseInt(exercise.sets) || 3;
