@@ -28,6 +28,7 @@ type Routine = {
   id: string
   name: string
   exercises: any[]
+  routine_exercises: any[]
 }
 
 const MEAL_NAMES = ['Desayuno', 'Media Mañana', 'Almuerzo', 'Media Tarde', 'Cena']
