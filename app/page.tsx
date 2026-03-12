@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { 
   Search, Dumbbell, Home, Settings, Play as PlayIcon, Plus, 
@@ -54,7 +54,10 @@ export default function GymProApp() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPass, setAuthPass] = useState("");
   const [currentView, setCurrentView] = useState<'home' | 'exercises' | 'routines' | 'myRoutines' | 'workout' | 'progress' | 'nutrition' | 'admin'>('home');
+  const [pendingNavTarget, setPendingNavTarget] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showSplash, setShowSplash] = useState(false);
+  const [splashExiting, setSplashExiting] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [showEditRoutineModal, setShowEditRoutineModal] = useState<number | null>(null);
   const [showCreateExModal, setShowCreateExModal] = useState(false);
@@ -66,7 +69,10 @@ export default function GymProApp() {
   const [workoutData, setWorkoutData] = useState<any>({});
   const [workoutTimer, setWorkoutTimer] = useState(0);
   const [restTimer, setRestTimer] = useState(0);
+  const [totalRestTime, setTotalRestTime] = useState(0);
   const [isResting, setIsResting] = useState(false);
+  const workoutStartRef = useRef<number>(0);
+  const restEndRef = useRef<number>(0);
   const [newExData, setNewExData] = useState({ name: '', target: 'chest', gif_url: '' });
   const [isActive, setIsActive] = useState(false);
 
@@ -138,52 +144,81 @@ export default function GymProApp() {
     return () => clearTimeout(timer);
   }, [userStats.weight, userStats.height, userStats.age, userStats.skinfolds, userStats.perimeters, userStats.gender, userStats.diameters]);
 
-  // ── Workout timer ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    let interval: any;
-    if (isActive) {
-      interval = setInterval(() => setWorkoutTimer((prev) => prev + 1), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isActive]);
-
-  // ── Rest timer ────────────────────────────────────────────────────────────
-  // ── Rest timer ────────────────────────────────────────────────────────────
-const playBeep = () => {
+  // ── Beep sound ────────────────────────────────────────────────────────────
+  const playBeep = () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.frequency.value = 880;
-      oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.8);
+      const beep = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.45, ctx.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur);
+      };
+      beep(660, 0, 0.15);
+      beep(880, 0.2, 0.15);
+      beep(1100, 0.4, 0.35);
     } catch (e) {}
   };
 
-    useEffect(() => {
-        if ('Notification' in window && Notification.permission === 'default') {
-          Notification.requestPermission();
-        }
-      }, []);
-
+  // ── Notification permission ───────────────────────────────────────────────
   useEffect(() => {
-    let interval: any;
-    if (isResting && restTimer > 0) {
-      interval = setInterval(() => setRestTimer((s) => s - 1), 1000);
-    } else if (restTimer <= 0 && isResting) {
-      setIsResting(false);
-      playBeep();
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('¡Descanso terminado!', { body: 'Es hora de tu siguiente serie 💪', silent: false });
-      }
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
-    return () => clearInterval(interval);
-  }, [isResting, restTimer]);
+  }, []);
+
+  // ── Workout timer (timestamp-based, runs in background) ───────────────────
+  useEffect(() => {
+    if (isActive) {
+      workoutStartRef.current = Date.now() - workoutTimer * 1000;
+      const interval = setInterval(() => {
+        setWorkoutTimer(Math.floor((Date.now() - workoutStartRef.current) / 1000));
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [isActive]);
+
+  // ── Rest timer (timestamp-based, runs in background) ─────────────────────
+  useEffect(() => {
+    if (isResting) {
+      restEndRef.current = Date.now() + restTimer * 1000;
+      const interval = setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((restEndRef.current - Date.now()) / 1000));
+        setRestTimer(remaining);
+        if (remaining <= 0) {
+          setIsResting(false);
+          playBeep();
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('¡Descanso terminado!', { body: 'Es hora de tu siguiente serie 💪', silent: false });
+          }
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [isResting]);
+
+  // ── Re-sync timers when tab regains focus ─────────────────────────────────
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        if (isResting) {
+          const remaining = Math.max(0, Math.ceil((restEndRef.current - Date.now()) / 1000));
+          setRestTimer(remaining);
+        }
+        if (isActive) {
+          setWorkoutTimer(Math.floor((Date.now() - workoutStartRef.current) / 1000));
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isResting, isActive]);
 
   // ── Load exercises when entering library ──────────────────────────────────
   useEffect(() => {
@@ -289,6 +324,15 @@ useEffect(() => {
     }
   };
 
+  // ── Navigation guard ──────────────────────────────────────────────────────
+  const handleNavigate = (view: string) => {
+    if (isActive && view !== 'workout') {
+      setPendingNavTarget(view);
+    } else {
+      setCurrentView(view as any);
+    }
+  };
+
   // ── Actions ───────────────────────────────────────────────────────────────
   const updateSet = (exerciseId: string, setIndex: number, newData: any) => {
     setWorkoutData((prev: any) => {
@@ -299,6 +343,7 @@ useEffect(() => {
         );
         const restTime = parseInt(exerciseConfig?.restTime || exerciseConfig?.rest_time) || 60;
         setRestTimer(restTime);
+        setTotalRestTime(restTime);
         setIsResting(true);
       }
       currentSets[setIndex] = { ...currentSets[setIndex], ...newData };
@@ -353,12 +398,15 @@ useEffect(() => {
       const { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPass });
       if (error) throw error;
       if (data.user) {
-        setUser(data.user); 
-        fetchProfile(data.user.id); 
+        setUser(data.user);
+        setShowSplash(true);
+        fetchProfile(data.user.id);
         fetchRoutines(data.user.id);
         const { data: hData } = await supabase.from('workout_logs').select('*').eq('user_id', data.user.id).order('date', { ascending: false });
         if (hData) setHistory(hData);
         fetchExercises();
+        setTimeout(() => setSplashExiting(true), 1800);
+        setTimeout(() => { setShowSplash(false); setSplashExiting(false); }, 2400);
       }
     } catch (err: any) {
       alert(err.message || "Error al iniciar sesión");
@@ -510,14 +558,115 @@ useEffect(() => {
   return (
     <div className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans relative">
 
+      <style>{`
+        @keyframes logoPopIn {
+          0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
+          60%  { transform: scale(1.22) rotate(5deg); opacity: 1; }
+          80%  { transform: scale(0.93) rotate(-2deg); }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        @keyframes textSlideUp {
+          from { transform: translateY(28px); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+        @keyframes glowPulse {
+          0%, 100% { box-shadow: 0 0 40px 8px rgba(16,185,129,0.45); }
+          50%       { box-shadow: 0 0 90px 35px rgba(16,185,129,0.85); }
+        }
+        @keyframes rippleOut {
+          0%   { transform: scale(0.6); opacity: 0.7; }
+          100% { transform: scale(2.8); opacity: 0; }
+        }
+        @keyframes bgBreath {
+          0%, 100% { opacity: 0.08; transform: scale(1); }
+          50%       { opacity: 0.22; transform: scale(1.15); }
+        }
+        @keyframes splashExit {
+          0%   { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+          100% { opacity: 0; transform: scale(1.1) translateY(-12px); filter: blur(6px); }
+        }
+        @keyframes homeCardIn {
+          from { transform: translateY(32px); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+        @keyframes homeCTABounce {
+          0%   { transform: scale(0.85); opacity: 0; }
+          70%  { transform: scale(1.04); opacity: 1; }
+          100% { transform: scale(1);    opacity: 1; }
+        }
+      `}</style>
+
+      {/* ── Splash overlay ──────────────────────────────────────────── */}
+      {showSplash && (
+        <div
+          className="fixed inset-0 z-[999] bg-gray-950 flex items-center justify-center overflow-hidden"
+          style={splashExiting ? { animation: 'splashExit 0.6s cubic-bezier(0.4,0,1,1) forwards' } : {}}
+        >
+          {/* Pulsing background glow */}
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] bg-emerald-500 rounded-full blur-[100px]"
+            style={{ animation: 'bgBreath 1.4s ease-in-out infinite' }}
+          />
+
+          {/* Ripple rings */}
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className="absolute top-1/2 left-1/2 w-32 h-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-400/50"
+              style={{ animation: `rippleOut 1.6s ease-out ${i * 0.45}s infinite` }}
+            />
+          ))}
+
+          {/* Content */}
+          <div className="relative flex flex-col items-center gap-6 px-8">
+            {/* Logo icon */}
+            <div
+              className="bg-gradient-to-br from-emerald-400 to-emerald-600 p-7 rounded-[2rem]"
+              style={{
+                animation: 'logoPopIn 0.75s cubic-bezier(0.175,0.885,0.32,1.275) forwards, glowPulse 1.3s ease-in-out 0.75s infinite',
+                boxShadow: '0 0 40px 8px rgba(16,185,129,0.45)'
+              }}
+            >
+              <Dumbbell size={60} className="text-white" />
+            </div>
+
+            {/* Brand */}
+            <div
+              className="text-center"
+              style={{ animation: 'textSlideUp 0.55s ease-out 0.45s both' }}
+            >
+              <h1 className="text-6xl font-black uppercase text-white tracking-tight">
+                Gym<span className="text-emerald-400">Pro</span>
+              </h1>
+              <p className="text-gray-400 text-sm tracking-[0.25em] uppercase font-bold mt-1">
+                Tu compañero de entrenamiento
+              </p>
+            </div>
+
+            {/* Call to action */}
+            <div
+              className="mt-2 bg-emerald-500/15 border border-emerald-500/30 px-8 py-3 rounded-2xl"
+              style={{ animation: 'textSlideUp 0.55s ease-out 0.85s both' }}
+            >
+              <p className="text-emerald-400 font-black uppercase tracking-widest text-sm">
+                ¡Listo para entrenar!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* FIX: nombre de elemento faltante — era "< className=..." */}
       <div className="flex-1 overflow-y-auto bg-gray-900 pb-28 pt-12 md:pt-10">
         <div className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8">
 
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
-            <div className="space-y-8 animate-in fade-in">
-              <header className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl text-center">
+            <div className="space-y-8">
+              <header
+                className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl text-center"
+                style={{ animation: 'homeCardIn 0.55s ease-out both' }}
+              >
                 <div className="mb-6">
                   <p className="text-sm text-gray-400 uppercase font-medium tracking-widest mb-2">Bienvenido</p>
                   <h1 className="text-4xl md:text-5xl font-black text-white truncate">{userStats.name}</h1>
@@ -538,10 +687,10 @@ useEffect(() => {
                 </div>
               </header>
 
-              <section className="space-y-4">
-                <h2 className="text-[10px] font-black uppercase text-gray-500 px-2 tracking-widest text-center">Entrenamiento de hoy</h2>
-                <button 
-                  onClick={() => setCurrentView('myRoutines')} 
+              <section className="space-y-4" style={{ animation: 'homeCTABounce 0.6s cubic-bezier(0.175,0.885,0.32,1.275) 0.15s both' }}>
+                <h2 className="text-[10px] font-black uppercase text-gray-500 px-2 tracking-widest text-center">Selecciona tu entrenamiento del día</h2>
+                <button
+                  onClick={() => setCurrentView('myRoutines')}
                   className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 p-8 rounded-[2.5rem] flex items-center justify-between group transition-all active:scale-95 shadow-xl shadow-emerald-500/20"
                 >
                   <div className="flex items-center gap-5">
@@ -549,19 +698,17 @@ useEffect(() => {
                       <PlayIcon size={28} fill="white" />
                     </div>
                     <div className="text-left min-w-0">
-                      <p className="text-white font-black uppercase text-xl leading-none truncate">Empezar Rutina</p>
-                      <p className="text-white/70 text-xs font-bold uppercase mt-2 truncate">Selecciona tu plan del día</p>
+                      <p className="text-white font-black uppercase text-xl leading-none truncate">Empezar Mi Entreno</p>
                       <p className="text-white/50 text-xs font-bold uppercase mt-3 tracking-widest truncate">
                         <span className="text-white font-black">{routines.length}</span> rutinas disponibles
                       </p>
                     </div>
                   </div>
-                  <ChevronRight size={28} className="text-white/50 group-hover:translate-x-1 transition-transform" />
                 </button>
               </section>
 
               {history[0] && (
-                <section className="bg-gray-800/40 p-5 rounded-3xl border border-gray-700">
+                <section className="bg-gray-800/40 p-5 rounded-3xl border border-gray-700" style={{ animation: 'homeCardIn 0.55s ease-out 0.3s both' }}>
                   <h2 className="text-[10px] font-black uppercase text-gray-500 mb-3 flex items-center gap-2"><History size={14}/> {t('lastWorkout')}</h2>
                   <div className="flex justify-between items-center min-w-0">
                     <div className="min-w-0"><h3 className="text-lg font-bold text-emerald-400 truncate">{history[0].routine_name}</h3><p className="text-xs text-gray-400 truncate">{new Date(history[0].date).toLocaleDateString()}</p></div>
@@ -570,7 +717,7 @@ useEffect(() => {
                 </section>
               )}
 
-              <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl space-y-4">
+              <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl space-y-4" style={{ animation: 'homeCardIn 0.55s ease-out 0.45s both' }}>
                 <h2 className="text-sm font-black uppercase text-emerald-400 flex items-center gap-2">
                   <PlusCircle size={18}/> Notas
                 </h2>
@@ -1044,21 +1191,21 @@ useEffect(() => {
 
       {/* ── BOTTOM NAV — FIX: estaba fuera del return ────────────────── */}
       <nav className="fixed bottom-0 left-0 right-0 z-[999] h-20 bg-[#111827] border-t border-gray-800 flex items-center justify-around px-2 shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
-        <button type="button" onClick={() => setCurrentView('home')} className="flex flex-col items-center justify-center w-full h-full gap-1">
+        <button type="button" onClick={() => handleNavigate('home')} className="flex flex-col items-center justify-center w-full h-full gap-1">
           <Home className={`w-6 h-6 ${currentView === 'home' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('home')}</span>
         </button>
-        <button type="button" onClick={() => setCurrentView('nutrition')} className="flex flex-col items-center justify-center w-full h-full gap-1">
+        <button type="button" onClick={() => handleNavigate('nutrition')} className="flex flex-col items-center justify-center w-full h-full gap-1">
           <Utensils className={`w-6 h-6 ${currentView === 'nutrition' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('nutrition')}</span>
         </button>
         {userStats.role === 'admin' && (
-          <button type="button" onClick={() => setCurrentView('admin')} className="flex flex-col items-center justify-center w-full h-full gap-1">
+          <button type="button" onClick={() => handleNavigate('admin')} className="flex flex-col items-center justify-center w-full h-full gap-1">
             <Settings className={`w-6 h-6 ${currentView === 'admin' ? 'text-emerald-500' : 'text-gray-500'}`} />
             <span className="text-[10px] font-bold uppercase">Admin</span>
           </button>
         )}
-        <button type="button" onClick={() => setCurrentView('progress')} className="flex flex-col items-center justify-center w-full h-full gap-1">
+        <button type="button" onClick={() => handleNavigate('progress')} className="flex flex-col items-center justify-center w-full h-full gap-1">
           <User className={`w-6 h-6 ${currentView === 'progress' ? 'text-emerald-500' : 'text-gray-500'}`} />
           <span className="text-[10px] font-bold uppercase">{t('profile')}</span>
         </button>
@@ -1112,18 +1259,109 @@ useEffect(() => {
       )}
 
       {/* ── REST TIMER OVERLAY ───────────────────────────────────────── */}
-      {isResting && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-6 z-[1100] animate-bounce border-2 border-white/20">
-          <div className="flex items-center gap-3">
-            <Timer className="w-6 h-6" />
-            <span className="text-3xl font-mono font-black">{restTimer}s</span>
+      {isResting && (() => {
+        const radius = 90;
+        const circumference = 2 * Math.PI * radius;
+        const progress = totalRestTime > 0 ? restTimer / totalRestTime : 0;
+        const dashOffset = circumference * (1 - progress);
+        const mins = Math.floor(restTimer / 60);
+        const secs = restTimer % 60;
+        return (
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/70 backdrop-blur-md">
+            <div className="flex flex-col items-center gap-6">
+              {/* título */}
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Tiempo de descanso</p>
+
+              {/* anillo circular */}
+              <div className="relative flex items-center justify-center">
+                <svg width="220" height="220" className="-rotate-90">
+                  {/* track */}
+                  <circle cx="110" cy="110" r={radius} fill="none" stroke="#1f2937" strokeWidth="10" />
+                  {/* progreso */}
+                  <circle
+                    cx="110" cy="110" r={radius} fill="none"
+                    stroke={progress > 0.4 ? '#10b981' : progress > 0.2 ? '#f59e0b' : '#ef4444'}
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={dashOffset}
+                    style={{ transition: 'stroke-dashoffset 0.8s linear, stroke 0.5s ease' }}
+                  />
+                </svg>
+                {/* número */}
+                <div className="absolute flex flex-col items-center">
+                  <span className="text-6xl font-black font-mono text-white leading-none">
+                    {mins > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : `${secs}`}
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
+                    {mins > 0 ? 'min' : 'seg'}
+                  </span>
+                </div>
+              </div>
+
+              {/* controles */}
+              <div className="flex items-center justify-center">
+                <button
+                  onClick={() => setIsResting(false)}
+                  className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-emerald-500/30"
+                >
+                  <SkipForward size={22} className="text-white" />
+                </button>
+              </div>
+
+              <p className="text-[10px] text-gray-600 uppercase font-bold tracking-widest">Toca saltar para continuar</p>
+            </div>
           </div>
-          <button onClick={() => setIsResting(false)} className="bg-white/20 p-2 rounded-full"><SkipForward /></button>
+        );
+      })()}
+
+      {/* ── WORKOUT NAV GUARD MODAL ───────────────────────────────────── */}
+      {pendingNavTarget && (
+        <div className="fixed inset-0 z-[1200] flex items-end justify-center bg-black/60 backdrop-blur-sm pb-8 px-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-3xl p-6 w-full max-w-sm space-y-4">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="bg-orange-500/10 p-4 rounded-full">
+                <Timer size={28} className="text-orange-400" />
+              </div>
+              <p className="font-black text-white text-lg">Entreno en curso</p>
+              <p className="text-gray-400 text-sm">¿Qué deseas hacer con tu entrenamiento actual?</p>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={async () => {
+                  await finishWorkout();
+                  setCurrentView(pendingNavTarget as any);
+                  setPendingNavTarget(null);
+                }}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all text-white font-black uppercase text-sm py-4 rounded-2xl"
+              >
+                Finalizar y salir
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentView(pendingNavTarget as any);
+                  setIsActive(false);
+                  setActiveRoutine(null);
+                  setIsResting(false);
+                  setPendingNavTarget(null);
+                }}
+                className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all text-red-400 font-black uppercase text-sm py-4 rounded-2xl"
+              >
+                Descartar entreno
+              </button>
+              <button
+                onClick={() => setPendingNavTarget(null)}
+                className="w-full text-gray-500 font-bold uppercase text-xs py-3"
+              >
+                Volver al entreno
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ── BOTTOM NAV ────────────────────────────────────────────────── */}
-      <BottomNav currentView={currentView} onNavigate={setCurrentView} />
+      <BottomNav currentView={currentView} onNavigate={handleNavigate} />
 
     </div>
   );
