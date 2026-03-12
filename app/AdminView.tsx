@@ -38,7 +38,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
-  const [activeTab, setActiveTab] = useState<'profile' | 'nutrition' | 'routines' | 'adicionales'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'nutrition' | 'routines' | 'notas'>('profile')
   const [meals, setMeals] = useState<Meal[]>([])
   const [routines, setRoutines] = useState<Routine[]>([])
   const [editProfile, setEditProfile] = useState<Partial<Profile>>({})
@@ -121,10 +121,10 @@ export default function AdminView({ supabase }: { supabase: any }) {
         {success && <div className="mx-2 bg-emerald-500/20 border border-emerald-500/50 rounded-xl px-4 py-2 text-emerald-400 text-sm font-bold text-center">{success}</div>}
 
         <div className="flex gap-1 px-2 overflow-x-auto">
-          {(['profile', 'nutrition', 'routines', 'adicionales'] as const).map(tab => (
+          {(['profile', 'nutrition', 'routines', 'notas'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-shrink-0 px-3 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${activeTab === tab ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>
-              {tab === 'profile' ? '👤 Perfil' : tab === 'nutrition' ? '🥗 Nutrición' : tab === 'routines' ? '💪 Rutinas' : '📝 Adicionales'}
+              {tab === 'profile' ? '👤 Perfil' : tab === 'nutrition' ? '🥗 Nutrición' : tab === 'routines' ? '💪 Rutinas' : '📝 Notas'}
             </button>
           ))}
         </div>
@@ -228,7 +228,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
           </div>
         )}
 
-        {activeTab === 'adicionales' && (
+        {activeTab === 'notas' && (
           <div className="space-y-4">
             <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 space-y-3">
               <div>
@@ -236,12 +236,12 @@ export default function AdminView({ supabase }: { supabase: any }) {
                 <input className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={editProfile.diet_style || ''} onChange={e => setEditProfile(p => ({ ...p, diet_style: e.target.value }))} />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase font-black mb-1 block">Adicionales / Notas</label>
+                <label className="text-[10px] text-gray-500 uppercase font-black mb-1 block">Notas</label>
                 <textarea className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white outline-none focus:border-emerald-500 h-32 resize-none" value={editProfile.injuries || ''} onChange={e => setEditProfile(p => ({ ...p, injuries: e.target.value }))} />
               </div>
             </div>
             <button onClick={saveProfile} disabled={saving} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 rounded-2xl py-4 font-black uppercase text-white flex items-center justify-center gap-2">
-              <Save size={18} /> {saving ? 'Guardando...' : 'Guardar Adicionales'}
+              <Save size={18} /> {saving ? 'Guardando...' : 'Guardar Notas'}
             </button>
           </div>
         )}
