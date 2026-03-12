@@ -7,13 +7,14 @@ import {
   Trophy, X, Save, Trash2, CheckCircle, History, 
   Timer, SkipForward, Eye, Activity, Clock, LogOut, User,
   Library, Calendar, Globe, Scale, HeartPulse, ChevronRight,
-  PlusCircle, Utensils
+  PlusCircle, Utensils, Mail, Lock, Loader2
 } from 'lucide-react'
 import { Toast } from '@capacitor/toast'
 import React from 'react'
 import { useWorkout } from '@/lib/workout-context' 
 import NutritionView from './NutritionView'
 import AdminView from './AdminView'
+import BottomNav from '@/components/BottomNav'
 import confetti from 'canvas-confetti'
 
 
@@ -442,15 +443,64 @@ useEffect(() => {
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!user) {
     return (
-      <div className="h-screen bg-gray-900 flex items-center justify-center p-6 text-center">
-        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700 w-full max-w-md space-y-6">
-          <div className="bg-emerald-500 p-4 rounded-full w-fit mx-auto"><Dumbbell size={40} className="text-white" /></div>
-          <h1 className="text-2xl font-black uppercase text-emerald-400">GymPro Login</h1>
-          <input className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none text-white" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="Email" />
-          <input type="password" title="password" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none text-white" value={authPass} onChange={e => setAuthPass(e.target.value)} placeholder="Password" />
-          <button onClick={handleLogin} disabled={isSaving} className="w-full bg-emerald-500 py-4 rounded-xl font-black uppercase text-white hover:bg-emerald-600 disabled:opacity-50">
-            {isSaving ? 'Entrando...' : 'Entrar'}
+      <div className="h-screen bg-gray-950 flex items-center justify-center p-4">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 -left-20 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
+        </div>
+        <div className="relative bg-gray-900/80 backdrop-blur-xl p-8 rounded-3xl border border-gray-800 w-full max-w-md shadow-2xl shadow-black/50 space-y-6">
+          <div className="text-center space-y-2">
+            <div className="bg-gradient-to-br from-emerald-400 to-emerald-600 p-4 rounded-2xl w-fit mx-auto shadow-lg shadow-emerald-500/30">
+              <Dumbbell size={40} className="text-white" />
+            </div>
+            <h1 className="text-3xl font-black uppercase text-white tracking-tight truncate">Gym<span className="text-emerald-400">Pro</span></h1>
+            <p className="text-gray-500 text-sm">Tu compañero de entrenamiento</p>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+                <Mail size={18} />
+              </div>
+              <input 
+                suppressHydrationWarning
+                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl p-3 pl-12 outline-none text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all" 
+                value={authEmail} 
+                onChange={e => setAuthEmail(e.target.value)} 
+                placeholder="Email" 
+              />
+            </div>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+                <Lock size={18} />
+              </div>
+              <input 
+                suppressHydrationWarning
+                type="password" 
+                title="password" 
+                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl p-3 pl-12 outline-none text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all" 
+                value={authPass} 
+                onChange={e => setAuthPass(e.target.value)} 
+                placeholder="Contraseña" 
+              />
+            </div>
+          </div>
+          
+          <button 
+            onClick={handleLogin} 
+            disabled={isSaving} 
+            className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 py-4 rounded-xl font-black uppercase text-white hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-emerald-500/30 active:scale-[0.98]"
+          >
+            {isSaving ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="animate-spin"><Loader2 size={20} /></span> Entrando...
+              </span>
+            ) : 'Entrar'}
           </button>
+          
+          <p className="text-center text-gray-500 text-xs">
+            ¿No tienes cuenta? <span className="text-emerald-400 font-bold">Regístrate</span>
+          </p>
         </div>
       </div>
     );
@@ -461,48 +511,60 @@ useEffect(() => {
     <div className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans relative">
 
       {/* FIX: nombre de elemento faltante — era "< className=..." */}
-      <div className="flex-1 overflow-y-auto bg-gray-900 pb-28">
-        <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+      <div className="flex-1 overflow-y-auto bg-gray-900 pb-28 pt-12 md:pt-10">
+        <div className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8">
 
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
             <div className="space-y-8 animate-in fade-in">
-              <header className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl">
-                <h1 className="text-3xl font-bold mb-6">{t('welcome')}, {userStats.name}</h1>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700"><p className="text-[10px] text-gray-500 uppercase font-bold">{t('weight')}</p><p className="text-xl font-bold">{userStats.weight}kg</p></div>
-                  <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700"><p className="text-[10px] text-gray-500 uppercase font-bold">{t('height')}</p><p className="text-xl font-bold">{userStats.height}m</p></div>
-                  <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20"><p className="text-[10px] text-emerald-500 uppercase font-bold">{t('streak')}</p><p className="text-xl font-bold text-emerald-400">{streak} / {userStats.trainingDays} {t('days')}</p></div>
+              <header className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl text-center">
+                <div className="mb-6">
+                  <p className="text-sm text-gray-400 uppercase font-medium tracking-widest mb-2">Bienvenido</p>
+                  <h1 className="text-4xl md:text-5xl font-black text-white truncate">{userStats.name}</h1>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
+                    <p className="text-[10px] text-gray-500 uppercase font-bold">{t('weight')}</p>
+                    <p className="text-xl font-bold text-white">{userStats.weight}kg</p>
+                  </div>
+                  <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
+                    <p className="text-[10px] text-gray-500 uppercase font-bold">{t('height')}</p>
+                    <p className="text-xl font-bold text-white">{userStats.height}m</p>
+                  </div>
+                  <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
+                    <p className="text-[10px] text-emerald-500 uppercase font-bold">{t('streak')}</p>
+                    <p className="text-xl font-bold text-emerald-400">{streak} / {userStats.trainingDays}</p>
+                  </div>
                 </div>
               </header>
 
               <section className="space-y-4">
-                <h2 className="text-[10px] font-black uppercase text-gray-500 px-2 tracking-widest">Entrenamiento de hoy</h2>
+                <h2 className="text-[10px] font-black uppercase text-gray-500 px-2 tracking-widest text-center">Entrenamiento de hoy</h2>
                 <button 
                   onClick={() => setCurrentView('myRoutines')} 
-                  className="w-full bg-emerald-500 hover:bg-emerald-400 p-6 rounded-[2.5rem] flex items-center justify-between group transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 p-8 rounded-[2.5rem] flex items-center justify-between group transition-all active:scale-95 shadow-xl shadow-emerald-500/20"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-black/20 p-4 rounded-2xl">
-                      <PlayIcon size={24} fill="black" />
+                  <div className="flex items-center gap-5">
+                    <div className="bg-white/20 p-5 rounded-2xl">
+                      <PlayIcon size={28} fill="white" />
                     </div>
-                    <div className="text-left">
-                      <p className="text-black font-black uppercase text-lg leading-none">Empezar Rutina</p>
-                      <p className="text-black/60 text-[10px] font-bold uppercase mt-1">Selecciona tu plan del día</p>
-                      <p className="text-[10px] text-black/50 font-bold uppercase mt-4 tracking-widest">
-                        Tienes <span className="text-black font-black">{routines.length}</span> rutinas disponibles
+                    <div className="text-left min-w-0">
+                      <p className="text-white font-black uppercase text-xl leading-none truncate">Empezar Rutina</p>
+                      <p className="text-white/70 text-xs font-bold uppercase mt-2 truncate">Selecciona tu plan del día</p>
+                      <p className="text-white/50 text-xs font-bold uppercase mt-3 tracking-widest truncate">
+                        <span className="text-white font-black">{routines.length}</span> rutinas disponibles
                       </p>
                     </div>
                   </div>
-                  <ChevronRight size={24} className="text-black/40 group-hover:translate-x-1 transition-transform" />
+                  <ChevronRight size={28} className="text-white/50 group-hover:translate-x-1 transition-transform" />
                 </button>
               </section>
 
               {history[0] && (
                 <section className="bg-gray-800/40 p-5 rounded-3xl border border-gray-700">
                   <h2 className="text-[10px] font-black uppercase text-gray-500 mb-3 flex items-center gap-2"><History size={14}/> {t('lastWorkout')}</h2>
-                  <div className="flex justify-between items-center">
-                    <div><h3 className="text-lg font-bold text-emerald-400">{history[0].routine_name}</h3><p className="text-xs text-gray-400">{new Date(history[0].date).toLocaleDateString()}</p></div>
+                  <div className="flex justify-between items-center min-w-0">
+                    <div className="min-w-0"><h3 className="text-lg font-bold text-emerald-400 truncate">{history[0].routine_name}</h3><p className="text-xs text-gray-400 truncate">{new Date(history[0].date).toLocaleDateString()}</p></div>
                     <div className="text-right"><p className="text-lg font-mono font-bold">{history[0].duration}</p><p className="text-[10px] uppercase text-gray-500 font-bold">{history[0].total_sets} Series totales</p></div>
                   </div>
                 </section>
@@ -532,7 +594,7 @@ useEffect(() => {
           {currentView === 'progress' && (
             <div className="space-y-8 animate-in fade-in pb-20">
               <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-black uppercase tracking-tighter">{t('profile')}</h1>
+                <h1 className="text-3xl font-black uppercase tracking-tighter truncate">{t('profile')}</h1>
                 <button onClick={toggleLanguage} className="p-2 bg-gray-800 rounded-xl border border-gray-700 text-emerald-400">
                   <Globe size={20}/>
                 </button>
@@ -737,7 +799,7 @@ useEffect(() => {
                       <div key={r.id} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
                         <div className="flex justify-between items-center">
                           <div>
-                            <h3 className="font-black uppercase text-sm">{r.name}</h3>
+                              <h3 className="font-black uppercase text-sm truncate">{r.name}</h3>
                             <p className="text-[10px] text-emerald-500 font-bold uppercase">{r.exercises?.length || 0} ejercicios</p>
                           </div>
                           <div className="flex gap-2">
@@ -780,7 +842,7 @@ useEffect(() => {
             <div className="space-y-6 animate-in fade-in">
               <div className="flex items-center gap-3">
                 <PlayIcon size={22} className="text-emerald-500" />
-                <h1 className="text-2xl font-black uppercase tracking-tighter">Mis Rutinas</h1>
+                <h1 className="text-2xl font-black uppercase tracking-tighter truncate">Mis Rutinas</h1>
               </div>
 
               <div className="space-y-3">
@@ -803,7 +865,7 @@ useEffect(() => {
                     className="bg-gray-800 border border-gray-700 rounded-2xl p-5 flex items-center justify-between group hover:border-emerald-500/30 transition-all"
                   >
                     <div>
-                      <h3 className="font-black uppercase text-base text-white group-hover:text-emerald-400 transition-colors">
+                      <h3 className="font-black uppercase text-base text-white group-hover:text-emerald-400 transition-colors truncate">
                         {r.name}
                       </h3>
                       <p className="text-xs text-gray-500 font-bold mt-0.5">
@@ -835,7 +897,7 @@ useEffect(() => {
           {currentView === 'exercises' && (
             <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-black uppercase tracking-tighter">{t('library')}</h1>
+                <h1 className="text-3xl font-black uppercase tracking-tighter truncate">{t('library')}</h1>
                 <button onClick={() => setShowCreateExModal(true)} className="bg-emerald-500 p-3 rounded-2xl text-white shadow-lg flex items-center gap-2 font-bold text-xs uppercase">
                   <Plus size={18}/> {t('createEx')}
                 </button>
@@ -851,7 +913,7 @@ useEffect(() => {
                       {ex.gifUrl && <img src={ex.gifUrl} className="w-full h-full object-cover" alt="" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-black text-sm capitalize break-words">{ex.name}</h4>
+                      <h4 className="font-black text-sm capitalize truncate">{ex.name}</h4>
                       <p className="text-[10px] text-gray-500 uppercase font-bold">{ex.target}</p>
                     </div>
                     {showEditRoutineModal && (
@@ -1013,8 +1075,8 @@ useEffect(() => {
             <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-800 no-scrollbar">
               {routines.find(r => r.id === showEditRoutineModal)?.exercises.map((ex: any) => (
                 <div key={ex.routineExerciseId} className="bg-gray-700/30 p-5 rounded-2xl border border-gray-600 grid grid-cols-4 gap-4 shadow-lg">
-                  <div className="col-span-4 flex justify-between items-center font-black uppercase text-sm">
-                    {ex.name} 
+                  <div className="col-span-4 flex justify-between items-center font-black uppercase text-sm min-w-0">
+                    <span className="truncate">{ex.name}</span> 
                     <button onClick={async () => { await supabase.from('routine_exercises').delete().eq('id', ex.routineExerciseId); fetchRoutines(user.id); }} className="text-red-400"><Trash2 size={16}/></button>
                   </div>
                   <div><label className="text-[10px] text-gray-500 block font-black uppercase mb-1">Series</label><input type="number" title="sets" value={ex.sets} className="w-full bg-gray-900 p-2 rounded-lg text-center font-bold" onChange={async e => { await supabase.from('routine_exercises').update({sets: e.target.value}).eq('id', ex.routineExerciseId); fetchRoutines(user.id); }} /></div>
@@ -1059,6 +1121,9 @@ useEffect(() => {
           <button onClick={() => setIsResting(false)} className="bg-white/20 p-2 rounded-full"><SkipForward /></button>
         </div>
       )}
+
+      {/* ── BOTTOM NAV ────────────────────────────────────────────────── */}
+      <BottomNav currentView={currentView} onNavigate={setCurrentView} />
 
     </div>
   );

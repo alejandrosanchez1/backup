@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { User, ChevronRight, X, Save, Trash2 } from 'lucide-react'
+import { User, ChevronRight, X, Save, Trash2, ChevronDown } from 'lucide-react'
 
 type Profile = {
   id: string
@@ -41,6 +41,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const [activeTab, setActiveTab] = useState<'profile' | 'nutrition' | 'routines' | 'notas'>('profile')
   const [meals, setMeals] = useState<Meal[]>([])
   const [routines, setRoutines] = useState<Routine[]>([])
+  const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null)
   const [editProfile, setEditProfile] = useState<Partial<Profile>>({})
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState('')
@@ -217,12 +218,32 @@ export default function AdminView({ supabase }: { supabase: any }) {
           <div className="space-y-3">
             {routines.length === 0 && <div className="text-center py-10 text-gray-500 text-sm">Sin rutinas asignadas</div>}
             {routines.map(routine => (
-              <div key={routine.id} className="bg-gray-800 rounded-2xl border border-gray-700 p-4 flex items-center justify-between">
-                <div>
-                  <p className="font-black text-sm">{routine.name}</p>
-                  <p className="text-[10px] text-gray-500 uppercase">{routine.routine_exercises?.length || 0} ejercicios</p>
+              <div key={routine.id} className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+                <div className="p-4 flex items-center justify-between">
+                  <button onClick={() => setExpandedRoutine(expandedRoutine === routine.id ? null : routine.id)} className="flex items-center gap-2 flex-1">
+                    <ChevronDown size={18} className={`text-gray-500 transition-transform ${expandedRoutine === routine.id ? 'rotate-180' : ''}`} />
+                    <div className="text-left">
+                      <p className="font-black text-sm">{routine.name}</p>
+                      <p className="text-[10px] text-gray-500 uppercase">{routine.routine_exercises?.length || 0} ejercicios</p>
+                    </div>
+                  </button>
+                  <button onClick={() => deleteRoutine(routine.id)} className="bg-red-500/20 border border-red-500/50 p-2 rounded-xl text-red-400"><Trash2 size={16} /></button>
                 </div>
-                <button onClick={() => deleteRoutine(routine.id)} className="bg-red-500/20 border border-red-500/50 p-2 rounded-xl text-red-400"><Trash2 size={16} /></button>
+                {expandedRoutine === routine.id && routine.routine_exercises && routine.routine_exercises.length > 0 && (
+                  <div className="border-t border-gray-700 p-3 space-y-2 bg-gray-900/30">
+                    {routine.routine_exercises.map((ex: any, idx: number) => (
+                      <div key={idx} className="bg-gray-700/30 rounded-xl p-3 flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-bold text-emerald-400">{ex.name || `Ejercicio ${idx + 1}`}</p>
+                          <p className="text-xs text-gray-500">{ex.sets} series x {ex.reps} reps</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400">{ex.weight || '-'} kg</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
