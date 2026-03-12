@@ -797,12 +797,12 @@ useEffect(() => {
                     </button>
                     {routines.map(r => (
                       <div key={r.id} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
-                        <div className="flex justify-between items-center">
-                          <div>
+                        <div className="flex justify-between items-center gap-3">
+                          <div className="flex-1 min-w-0">
                               <h3 className="font-black uppercase text-sm truncate">{r.name}</h3>
                             <p className="text-[10px] text-emerald-500 font-bold uppercase">{r.exercises?.length || 0} ejercicios</p>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-shrink-0">
                             <button 
                               onClick={() => { setShowEditRoutineModal(r.id); setCurrentView('exercises'); }} 
                               className="p-2 bg-blue-500/10 text-blue-400 rounded-lg text-[10px] font-black uppercase"
@@ -862,9 +862,9 @@ useEffect(() => {
                 {routines.map(r => (
                   <div
                     key={r.id}
-                    className="bg-gray-800 border border-gray-700 rounded-2xl p-5 flex items-center justify-between group hover:border-emerald-500/30 transition-all"
+                    className="bg-gray-800 border border-gray-700 rounded-2xl p-5 flex items-center justify-between gap-3 group hover:border-emerald-500/30 transition-all"
                   >
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-black uppercase text-base text-white group-hover:text-emerald-400 transition-colors truncate">
                         {r.name}
                       </h3>
