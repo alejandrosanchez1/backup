@@ -1645,14 +1645,27 @@ useEffect(() => {
               <button
                 onClick={() => { setShowFinishConfirm(false); finishWorkout(); }}
                 className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest text-white transition-all active:scale-[0.97]"
-                style={{ background: 'linear-gradient(135deg,#ef4444,#dc2626)', boxShadow: '0 6px 24px rgba(239,68,68,0.35)' }}
+                style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 6px 24px rgba(0,229,168,0.35)' }}
               >
                 Sí, finalizar
               </button>
               <button
-                onClick={() => setShowFinishConfirm(false)}
+                onClick={() => {
+                  setShowFinishConfirm(false);
+                  setIsActive(false);
+                  setActiveRoutine(null);
+                  setIsResting(false);
+                  setCurrentView('myRoutines');
+                }}
                 className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest transition-all active:scale-[0.97]"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#A8B3CF' }}
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}
+              >
+                Descartar entreno
+              </button>
+              <button
+                onClick={() => setShowFinishConfirm(false)}
+                className="w-full py-3 font-bold uppercase text-xs tracking-widest transition-all active:scale-[0.97]"
+                style={{ color: '#6B7895' }}
               >
                 Seguir entrenando
               </button>
@@ -1663,23 +1676,35 @@ useEffect(() => {
 
       {/* ── WORKOUT NAV GUARD MODAL ───────────────────────────────────── */}
       {pendingNavTarget && (
-        <div className="fixed inset-0 z-[1200] flex items-end justify-center bg-black/60 backdrop-blur-sm pb-8 px-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-3xl p-6 w-full max-w-sm space-y-4">
-            <div className="flex flex-col items-center gap-2 text-center">
-              <div className="bg-orange-500/10 p-4 rounded-full">
-                <Timer size={28} className="text-orange-400" />
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-6 backdrop-blur-xl" style={{ background: 'rgba(11,18,32,0.88)' }}>
+          <div
+            className="w-full max-w-sm rounded-[24px] p-7 space-y-6"
+            style={{ background: 'rgba(18,26,42,0.98)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
+          >
+            {/* Icon */}
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.25)' }}>
+                <Timer size={32} style={{ color: '#FFA500' }} />
               </div>
-              <p className="font-black text-white text-lg">Entreno en curso</p>
-              <p className="text-gray-400 text-sm">¿Qué deseas hacer con tu entrenamiento actual?</p>
             </div>
-            <div className="space-y-2">
+
+            {/* Text */}
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-black uppercase text-white tracking-tight">Entreno en curso</h3>
+              <p className="text-sm" style={{ color: '#A8B3CF' }}>¿Qué deseas hacer con tu entrenamiento actual?</p>
+            </div>
+
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />
+
+            <div className="space-y-3">
               <button
                 onClick={async () => {
                   await finishWorkout();
                   setCurrentView(pendingNavTarget as any);
                   setPendingNavTarget(null);
                 }}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all text-white font-black uppercase text-sm py-4 rounded-2xl"
+                className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest text-white transition-all active:scale-[0.97]"
+                style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 6px 24px rgba(0,229,168,0.35)' }}
               >
                 Finalizar y salir
               </button>
@@ -1691,13 +1716,15 @@ useEffect(() => {
                   setIsResting(false);
                   setPendingNavTarget(null);
                 }}
-                className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all text-red-400 font-black uppercase text-sm py-4 rounded-2xl"
+                className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest transition-all active:scale-[0.97]"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}
               >
                 Descartar entreno
               </button>
               <button
                 onClick={() => setPendingNavTarget(null)}
-                className="w-full text-gray-500 font-bold uppercase text-xs py-3"
+                className="w-full py-3 font-bold uppercase text-xs tracking-widest transition-all active:scale-[0.97]"
+                style={{ color: '#6B7895' }}
               >
                 Volver al entreno
               </button>
