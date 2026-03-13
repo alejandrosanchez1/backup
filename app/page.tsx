@@ -59,6 +59,7 @@ export default function GymProApp() {
   const [showSplash, setShowSplash] = useState(false);
   const [splashExiting, setSplashExiting] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [showEditRoutineModal, setShowEditRoutineModal] = useState<number | null>(null);
   const [showCreateExModal, setShowCreateExModal] = useState(false);
@@ -598,6 +599,14 @@ useEffect(() => {
           70%  { transform: scale(1.04); opacity: 1; }
           100% { transform: scale(1);    opacity: 1; }
         }
+        @keyframes viewEnter {
+          0%   { opacity: 0; transform: translateY(18px) scale(0.98); filter: blur(4px); }
+          100% { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0px); }
+        }
+        @keyframes logoutExit {
+          0%   { opacity: 1; transform: scale(1)    translateY(0);    filter: blur(0px); }
+          100% { opacity: 0; transform: scale(1.06) translateY(-20px); filter: blur(8px); }
+        }
       `}</style>
 
       {/* ── Splash overlay ──────────────────────────────────────────── */}
@@ -663,7 +672,7 @@ useEffect(() => {
 
       {/* FIX: nombre de elemento faltante — era "< className=..." */}
       <div className="flex-1 overflow-y-auto pb-28 pt-12 md:pt-10" style={{ background: 'transparent' }}>
-        <div className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+        <div key={currentView} className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8" style={{ animation: 'viewEnter 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
 
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
@@ -759,125 +768,207 @@ useEffect(() => {
 
           {/* ── PROFILE / PROGRESS ─────────────────────────────────────── */}
           {currentView === 'progress' && (
-            <div className="space-y-8 animate-in fade-in pb-20">
+            <div className="space-y-5 pb-20">
+
+              {/* Header */}
               <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-black uppercase tracking-tighter truncate">{t('profile')}</h1>
-                <button onClick={toggleLanguage} className="p-2 bg-gray-800 rounded-xl border border-gray-700 text-emerald-400">
-                  <Globe size={20}/>
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest mb-1" style={{ color: '#6B7895' }}>Tu cuenta</p>
+                  <h1 className="text-3xl font-black uppercase tracking-tight text-white">{t('profile')}</h1>
+                </div>
+                <button
+                  onClick={toggleLanguage}
+                  className="p-3 rounded-2xl transition-all active:scale-95"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  <Globe size={18} style={{ color: '#00E5A8' }}/>
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-800 p-5 rounded-3xl border border-gray-700 shadow-xl text-center">
-                  <p className="text-[10px] text-gray-500 uppercase font-black mb-1">{t('weight')}</p>
-                  <p className="text-2xl font-black text-white">{userStats.weight}kg</p>
+              {/* Avatar + nombre */}
+              <div
+                className="p-6 rounded-[20px] flex items-center gap-5"
+                style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}
+              >
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 font-black text-2xl text-white"
+                  style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 20px rgba(0,229,168,0.35)' }}
+                >
+                  {userStats.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="bg-gray-800 p-5 rounded-3xl border border-gray-700 shadow-xl text-center">
-                  <p className="text-[10px] text-gray-500 uppercase font-black mb-1">{t('height')}</p>
-                  <p className="text-2xl font-black text-white">{userStats.height}m</p>
+                <div className="min-w-0">
+                  <h2 className="text-xl font-black text-white truncate">{userStats.name}</h2>
+                  <p className="text-xs font-bold mt-0.5" style={{ color: '#6B7895' }}>{user?.email}</p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#00E5A8' }} />
+                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: '#00E5A8' }}>
+                      {userStats.role === 'admin' ? 'Administrador' : 'Atleta activo'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 space-y-4 shadow-xl">
-                  <h2 className="text-sm font-black uppercase text-emerald-400 flex items-center gap-2">
-                    <Activity size={18}/> {t('composition')}
-                  </h2>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-900 p-4 rounded-xl border border-gray-700">
-                      <p className="text-[10px] text-gray-500 uppercase font-bold">{t('fat')}</p>
-                      <p className="text-xl font-black text-red-400">{userStats.results.fatPercentage}%</p>
-                    </div>
-                    <div className="bg-gray-900 p-4 rounded-xl border border-gray-700">
-                      <p className="text-[10px] text-gray-500 uppercase font-bold">{t('muscle')}</p>
-                      <p className="text-xl font-black text-emerald-400">{userStats.results.muscleMass}kg</p>
-                    </div>
-                    <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 col-span-2">
-                      <p className="text-[10px] text-gray-500 uppercase font-bold">Índice de Masa Corporal ({t('imc')})</p>
-                      <p className="text-xl font-black text-blue-400">{userStats.results.bmi}</p>
+              {/* Métricas principales */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-4 rounded-[20px] text-center" style={{ background: 'linear-gradient(135deg,rgba(30,58,138,0.5),rgba(37,99,235,0.35))', border: '1px solid rgba(37,99,235,0.25)' }}>
+                  <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#60a5fa' }}>{t('weight')}</p>
+                  <p className="text-xl font-black text-white">{userStats.weight}</p>
+                  <p className="text-[9px]" style={{ color: '#60a5fa' }}>kg</p>
+                </div>
+                <div className="p-4 rounded-[20px] text-center" style={{ background: 'linear-gradient(135deg,rgba(76,29,149,0.5),rgba(124,58,237,0.35))', border: '1px solid rgba(124,58,237,0.25)' }}>
+                  <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#a78bfa' }}>{t('height')}</p>
+                  <p className="text-xl font-black text-white">{userStats.height}</p>
+                  <p className="text-[9px]" style={{ color: '#a78bfa' }}>m</p>
+                </div>
+                <div className="p-4 rounded-[20px] text-center" style={{ background: 'linear-gradient(135deg,rgba(6,95,70,0.5),rgba(16,185,129,0.35))', border: '1px solid rgba(16,185,129,0.25)' }}>
+                  <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#00E5A8' }}>Racha</p>
+                  <p className="text-xl font-black text-white">{streak}</p>
+                  <p className="text-[9px]" style={{ color: '#00E5A8' }}>días</p>
+                </div>
+              </div>
+
+              {/* Composición corporal */}
+              <div
+                className="p-5 rounded-[20px] space-y-4"
+                style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}
+              >
+                <h2 className="text-xs font-black uppercase flex items-center gap-2" style={{ color: '#00E5A8' }}>
+                  <Activity size={14}/> {t('composition')}
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 rounded-2xl" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
+                    <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#f87171' }}>{t('fat')}</p>
+                    <p className="text-2xl font-black" style={{ color: '#f87171' }}>{userStats.results.fatPercentage}<span className="text-sm">%</span></p>
+                    <p className="text-[9px] mt-0.5" style={{ color: '#6B7895' }}>{userStats.results.fatLabel}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl" style={{ background: 'rgba(0,229,168,0.08)', border: '1px solid rgba(0,229,168,0.18)' }}>
+                    <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#00E5A8' }}>{t('muscle')}</p>
+                    <p className="text-2xl font-black" style={{ color: '#00E5A8' }}>{userStats.results.muscleMass}<span className="text-sm">kg</span></p>
+                    <p className="text-[9px] mt-0.5" style={{ color: '#6B7895' }}>Masa magra</p>
+                  </div>
+                  <div className="p-4 rounded-2xl col-span-2" style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)' }}>
+                    <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#60a5fa' }}>IMC — {t('imc')}</p>
+                    <div className="flex items-end justify-between">
+                      <p className="text-2xl font-black" style={{ color: '#60a5fa' }}>{userStats.results.bmi}</p>
+                      <span className="text-[9px] px-2 py-1 rounded-lg font-bold" style={{ background: 'rgba(37,99,235,0.15)', color: '#60a5fa' }}>
+                        {userStats.results.bmiLabel}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-
-              <div className="pt-4"> 
-                <button 
-                  onClick={() => supabase.auth.signOut()}
-                  className="w-full bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 py-4 rounded-3xl flex items-center justify-center gap-3 transition-all group active:scale-95"
+              {/* Logout */}
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={async () => {
+                    setLoggingOut(true)
+                    await new Promise(r => setTimeout(r, 700))
+                    await supabase.auth.signOut()
+                  }}
+                  disabled={loggingOut}
+                  className="w-full py-4 rounded-[20px] flex items-center justify-center gap-3 transition-all active:scale-[0.97]"
+                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
                 >
-                  <LogOut size={18} className="text-red-500 group-hover:rotate-12 transition-transform" />
-                  <span className="text-red-500 font-black uppercase text-xs tracking-widest">{t('logout')}</span>
+                  <LogOut size={18} style={{ color: '#ef4444' }} />
+                  <span className="font-black uppercase text-sm tracking-widest" style={{ color: '#ef4444' }}>
+                    {loggingOut ? 'Cerrando...' : t('logout')}
+                  </span>
                 </button>
-                <p className="text-center text-[10px] text-gray-600 uppercase font-bold mt-6 tracking-[0.2em]">
+                <p className="text-center text-[10px] uppercase font-bold tracking-[0.2em]" style={{ color: '#6B7895' }}>
                   Versión 1.0.2 • FitApp
                 </p>
               </div>
-            </div> 
+
+            </div>
           )}
 
           {/* ── SETTINGS / ROUTINES ────────────────────────────────────── */}
           {currentView === 'routines' && (
-            <div className="space-y-6 animate-in fade-in">
+            <div className="space-y-5">
+
+              {/* Header */}
               <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold uppercase tracking-tighter">
-                  {activeSettingsTab === 'rutinas' ? t('rutinas') : t('settings')}
-                </h1>
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest mb-1" style={{ color: '#6B7895' }}>Configuración</p>
+                  <h1 className="text-3xl font-black uppercase tracking-tight text-white">
+                    {activeSettingsTab === 'rutinas' ? t('rutinas') : t('settings')}
+                  </h1>
+                </div>
                 <div className="flex gap-2">
-                  {/* Botón engranaje: alterna entre Rutinas y Configuración */}
-                  <button 
+                  <button
                     onClick={() => setActiveSettingsTab(activeSettingsTab === 'rutinas' ? 'general' : 'rutinas')}
-                    className="p-2 bg-gray-800 border border-gray-700 rounded-xl text-gray-400 hover:text-emerald-400 transition-colors"
+                    className="p-3 rounded-2xl transition-all active:scale-95"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
                   >
-                    <Settings size={20}/>
+                    <Settings size={18} style={{ color: '#6B7895' }}/>
                   </button>
                   {activeSettingsTab !== 'rutinas' && (
-                    <button onClick={saveProfile} disabled={isSaving} className="bg-emerald-500 px-6 py-2 rounded-xl font-bold flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50">
-                      <Save size={18} /> {isSaving ? '...' : t('save')}
+                    <button
+                      onClick={saveProfile} disabled={isSaving}
+                      className="px-5 py-2.5 rounded-2xl font-black text-xs uppercase text-white flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 16px rgba(0,229,168,0.35)' }}
+                    >
+                      <Save size={15}/> {isSaving ? '...' : t('save')}
                     </button>
                   )}
                 </div>
               </div>
 
-              <div className="flex gap-4 border-b border-gray-700 pb-px overflow-x-auto no-scrollbar">
+              {/* Tabs */}
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                 {['general', 'objetivos', 'antropometria', 'rutinas'].map(tab => (
-                  <button 
-                    key={tab} 
-                    onClick={() => setActiveSettingsTab(tab)} 
-                    className={`px-2 py-2 font-black text-[10px] uppercase transition-all whitespace-nowrap ${activeSettingsTab === tab ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-gray-500'}`}
+                  <button
+                    key={tab}
+                    onClick={() => setActiveSettingsTab(tab)}
+                    className="flex-shrink-0 px-4 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
+                    style={activeSettingsTab === tab
+                      ? { background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', color: '#fff', boxShadow: '0 4px 16px rgba(0,229,168,0.35)' }
+                      : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7895' }
+                    }
                   >
                     {t(tab as any)}
                   </button>
                 ))}
               </div>
 
-              <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700">
+              {/* Tab content card */}
+              <div className="p-5 rounded-[20px]" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
 
                 {/* TAB GENERAL */}
                 {activeSettingsTab === 'general' && (
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     <div>
-                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-bold">Nombre Completo</label>
-                      <input className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500" value={userStats.name} onChange={e => setUserStats({...userStats, name: e.target.value})} />
+                      <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Nombre Completo</label>
+                      <input
+                        className="w-full rounded-xl p-3 outline-none text-white"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        value={userStats.name} onChange={e => setUserStats({...userStats, name: e.target.value})}
+                      />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: 'Peso (kg)', key: 'weight', type: 'number', step: '0.1' },
+                        { label: 'Altura (m)', key: 'height', type: 'number', step: '0.01' },
+                        { label: 'Edad', key: 'age', type: 'number', step: '1' },
+                      ].map(({ label, key, type, step }) => (
+                        <div key={key}>
+                          <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>{label}</label>
+                          <input
+                            type={type} step={step}
+                            className="w-full rounded-xl p-3 outline-none font-bold text-white"
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            value={(userStats as any)[key]} onChange={e => setUserStats({...userStats, [key]: e.target.value})}
+                          />
+                        </div>
+                      ))}
                       <div>
-                        <label className="text-[10px] text-gray-500 uppercase mb-2 block font-bold">Peso (kg)</label>
-                        <input type="number" step="0.1" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500 text-emerald-400 font-bold" value={userStats.weight} onChange={e => setUserStats({...userStats, weight: e.target.value})} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-gray-500 uppercase mb-2 block font-bold">Altura (m)</label>
-                        <input type="number" step="0.01" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500 text-emerald-400 font-bold" value={userStats.height} onChange={e => setUserStats({...userStats, height: e.target.value})} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] text-gray-500 uppercase mb-2 block font-bold">Edad</label>
-                        <input type="number" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500" value={userStats.age} onChange={e => setUserStats({...userStats, age: e.target.value})} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-gray-500 uppercase mb-2 block font-bold">Sexo</label>
-                        <select className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500" value={userStats.gender} onChange={e => setUserStats({...userStats, gender: e.target.value})}>
+                        <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Sexo</label>
+                        <select
+                          className="w-full rounded-xl p-3 outline-none text-white"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                          value={userStats.gender} onChange={e => setUserStats({...userStats, gender: e.target.value})}
+                        >
                           <option value="Hombre">Hombre</option>
                           <option value="Mujer">Mujer</option>
                         </select>
@@ -888,27 +979,35 @@ useEffect(() => {
 
                 {/* TAB OBJETIVOS */}
                 {activeSettingsTab === 'objetivos' && (
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     <div>
-                      <label className="text-[10px] text-gray-500 uppercase mb-3 block font-black">{t('focusAreas')}</label>
+                      <label className="block text-[10px] uppercase font-bold mb-3" style={{ color: '#6B7895' }}>{t('focusAreas')}</label>
                       <div className="flex flex-wrap gap-2">
-                        {FOCUS_OPTIONS.map(opt => (
-                          <button 
-                            key={opt} 
-                            onClick={() => {
-                              const newF = userStats.focus.includes(opt) ? userStats.focus.filter(f => f !== opt) : [...userStats.focus, opt];
-                              setUserStats({...userStats, focus: newF});
-                            }} 
-                            className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${userStats.focus.includes(opt) ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-gray-900 border-gray-700 text-gray-500'}`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
+                        {FOCUS_OPTIONS.map(opt => {
+                          const active = userStats.focus.includes(opt)
+                          return (
+                            <button
+                              key={opt}
+                              onClick={() => setUserStats({...userStats, focus: active ? userStats.focus.filter(f => f !== opt) : [...userStats.focus, opt]})}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95"
+                              style={active
+                                ? { background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', color: '#fff', boxShadow: '0 2px 12px rgba(0,229,168,0.3)' }
+                                : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6B7895' }
+                              }
+                            >
+                              {opt}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">Nivel de Experiencia</label>
-                      <select className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500 text-white" value={userStats.experienceLevel} onChange={e => setUserStats({...userStats, experienceLevel: e.target.value})}>
+                      <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Nivel de Experiencia</label>
+                      <select
+                        className="w-full rounded-xl p-3 outline-none text-white"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        value={userStats.experienceLevel} onChange={e => setUserStats({...userStats, experienceLevel: e.target.value})}
+                      >
                         <option value="">Seleccionar</option>
                         <option value="Principiante">Principiante</option>
                         <option value="Intermedio">Intermedio</option>
@@ -916,82 +1015,97 @@ useEffect(() => {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">Días de Entrenamiento por Semana</label>
-                      <input type="number" min="1" max="7" className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none focus:border-emerald-500" value={userStats.trainingDays} onChange={e => setUserStats({...userStats, trainingDays: e.target.value})} />
+                      <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Días de Entrenamiento / Semana</label>
+                      <input
+                        type="number" min="1" max="7"
+                        className="w-full rounded-xl p-3 outline-none text-white"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        value={userStats.trainingDays} onChange={e => setUserStats({...userStats, trainingDays: e.target.value})}
+                      />
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-500 uppercase mb-2 block font-black">Adicionales</label>
-                      <textarea className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 outline-none h-24 focus:border-emerald-500" value={userStats.injuries} onChange={e => setUserStats({...userStats, injuries: e.target.value})} />
+                      <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Adicionales / Notas</label>
+                      <textarea
+                        className="w-full rounded-xl p-3 outline-none text-white resize-none h-24"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        value={userStats.injuries} onChange={e => setUserStats({...userStats, injuries: e.target.value})}
+                      />
                     </div>
                   </div>
                 )}
 
                 {/* TAB ANTROPOMETRIA */}
                 {activeSettingsTab === 'antropometria' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="space-y-3">
-                      <h4 className="text-[10px] font-black text-gray-500 uppercase border-b border-gray-700 pb-2">Pliegues</h4>
-                      {Object.keys(userStats.skinfolds).map(k => (
-                        <div key={`skinfold-${k}`} className="flex justify-between items-center">
-                          <span className="text-[10px] text-gray-400 capitalize">{k}</span>
-                          <input type="number" className="w-16 bg-gray-900 border border-gray-700 rounded-lg p-1 text-center text-xs font-bold" value={(userStats.skinfolds as any)[k]} onChange={e => setUserStats({...userStats, skinfolds: {...userStats.skinfolds, [k]: e.target.value}})} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="space-y-3">
-                      <h4 className="text-[10px] font-black text-gray-500 uppercase border-b border-gray-700 pb-2">Perímetros</h4>
-                      {Object.keys(userStats.perimeters).map(k => (
-                        <div key={`perimeter-${k}`} className="flex justify-between items-center">
-                          <span className="text-[10px] text-gray-400 capitalize">{k}</span>
-                          <input type="number" className="w-16 bg-gray-900 border border-gray-700 rounded-lg p-1 text-center text-xs font-bold" value={(userStats.perimeters as any)[k]} onChange={e => setUserStats({...userStats, perimeters: {...userStats.perimeters, [k]: e.target.value}})} />
-                        </div>
-                      ))}
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[
+                      { title: 'Pliegues (mm)', data: userStats.skinfolds, key: 'skinfolds' },
+                      { title: 'Perímetros (cm)', data: userStats.perimeters, key: 'perimeters' },
+                    ].map(({ title, data, key }) => (
+                      <div key={key} className="space-y-3">
+                        <h4 className="text-[10px] font-black uppercase pb-2" style={{ color: '#00E5A8', borderBottom: '1px solid rgba(0,229,168,0.15)' }}>{title}</h4>
+                        {Object.keys(data).map(k => (
+                          <div key={k} className="flex justify-between items-center">
+                            <span className="text-xs capitalize" style={{ color: '#A8B3CF' }}>{k}</span>
+                            <input
+                              type="number"
+                              className="w-20 rounded-lg p-1.5 text-center text-xs font-bold text-white outline-none"
+                              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                              value={(data as any)[k]}
+                              onChange={e => setUserStats({...userStats, [key]: {...(userStats as any)[key], [k]: e.target.value}})}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* TAB RUTINAS */}
                 {activeSettingsTab === 'rutinas' && (
-                  <div className="space-y-4">
-                    <button 
-                      onClick={async () => { 
-                        const n = prompt('Nombre:'); 
-                        if (n) { await supabase.from('routines').insert([{ name: n, user_id: user.id }]); fetchRoutines(user.id); } 
-                      }} 
-                      className="w-full bg-gray-900 border-2 border-dashed border-gray-700 p-4 rounded-2xl flex items-center justify-center gap-2 text-gray-500 font-black uppercase text-xs hover:border-emerald-500 transition-all"
+                  <div className="space-y-3">
+                    <button
+                      onClick={async () => {
+                        const n = prompt('Nombre de la rutina:')
+                        if (n) { await supabase.from('routines').insert([{ name: n, user_id: user.id }]); fetchRoutines(user.id); }
+                      }}
+                      className="w-full p-4 rounded-2xl flex items-center justify-center gap-2 font-black uppercase text-xs transition-all active:scale-95"
+                      style={{ border: '1.5px dashed rgba(0,229,168,0.3)', color: '#00E5A8', background: 'rgba(0,229,168,0.04)' }}
                     >
-                      <Plus size={20}/> Nueva Rutina
+                      <Plus size={18}/> Nueva Rutina
                     </button>
                     {routines.map(r => (
-                      <div key={r.id} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
+                      <div key={r.id} className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div className="flex justify-between items-center gap-3">
                           <div className="flex-1 min-w-0">
-                              <h3 className="font-black uppercase text-sm truncate">{r.name}</h3>
-                            <p className="text-[10px] text-emerald-500 font-bold uppercase">{r.exercises?.length || 0} ejercicios</p>
+                            <h3 className="font-black uppercase text-sm text-white truncate">{r.name}</h3>
+                            <p className="text-[10px] font-bold uppercase mt-0.5" style={{ color: '#00E5A8' }}>{r.exercises?.length || 0} ejercicios</p>
                           </div>
-                          <div className="flex gap-2 flex-shrink-0">
-                            <button 
-                              onClick={() => { setShowEditRoutineModal(r.id); setCurrentView('exercises'); }} 
-                              className="p-2 bg-blue-500/10 text-blue-400 rounded-lg text-[10px] font-black uppercase"
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              onClick={() => { setShowEditRoutineModal(r.id); setCurrentView('exercises'); }}
+                              className="px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95"
+                              style={{ background: 'rgba(0,194,255,0.1)', border: '1px solid rgba(0,194,255,0.2)', color: '#00C2FF' }}
                             >
                               + Añadir
                             </button>
-                            <button 
-                              onClick={() => setShowEditRoutineModal(r.id)} 
-                              className="p-2 bg-gray-700 text-white rounded-lg"
+                            <button
+                              onClick={() => setShowEditRoutineModal(r.id)}
+                              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95"
+                              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
                             >
-                              <Settings size={18}/>
+                              <Settings size={15} style={{ color: '#6B7895' }}/>
                             </button>
-                            <button 
-                              onClick={async () => { 
+                            <button
+                              onClick={async () => {
                                 if (!confirm(`¿Eliminar "${r.name}"?`)) return;
                                 await supabase.from('routine_exercises').delete().eq('routine_id', r.id);
                                 await supabase.from('routines').delete().eq('id', r.id);
                                 fetchRoutines(user.id);
-                              }} 
-                              className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
+                              }}
+                              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95"
+                              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}
                             >
-                              <Trash2 size={18}/>
+                              <Trash2 size={15} style={{ color: '#ef4444' }}/>
                             </button>
                           </div>
                         </div>
@@ -1481,6 +1595,25 @@ useEffect(() => {
           </div>
         );
       })()}
+
+      {/* ── LOGOUT ANIMATION OVERLAY ─────────────────────────────────── */}
+      {loggingOut && (
+        <div
+          className="fixed inset-0 z-[2000] flex flex-col items-center justify-center gap-6"
+          style={{ background: '#0B1220', animation: 'splashExit 0.7s cubic-bezier(0.4,0,1,1) 0.5s forwards', opacity: 1 }}
+        >
+          <div
+            className="p-6 rounded-3xl"
+            style={{ background: 'linear-gradient(135deg,rgba(239,68,68,0.15),rgba(239,68,68,0.05))', border: '1px solid rgba(239,68,68,0.25)' }}
+          >
+            <LogOut size={40} style={{ color: '#ef4444' }} />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-xl font-black uppercase text-white">Hasta pronto</p>
+            <p className="text-sm" style={{ color: '#6B7895' }}>Cerrando sesión...</p>
+          </div>
+        </div>
+      )}
 
       {/* ── FINISH WORKOUT CONFIRM MODAL ─────────────────────────────── */}
       {showFinishConfirm && (
