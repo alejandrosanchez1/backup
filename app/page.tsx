@@ -58,6 +58,7 @@ export default function GymProApp() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [splashExiting, setSplashExiting] = useState(false);
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [showEditRoutineModal, setShowEditRoutineModal] = useState<number | null>(null);
   const [showCreateExModal, setShowCreateExModal] = useState(false);
@@ -491,53 +492,56 @@ useEffect(() => {
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!user) {
     return (
-      <div className="h-screen bg-gray-950 flex items-center justify-center p-4">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 -left-20 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
+      <div className="h-screen flex items-center justify-center p-4" style={{ background: 'radial-gradient(circle at 20% 20%, rgba(0,229,168,0.08), transparent 50%), radial-gradient(circle at 80% 0%, rgba(124,92,255,0.08), transparent 50%), #0B1220' }}>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full blur-3xl" style={{ background: 'rgba(0,229,168,0.07)' }} />
+          <div className="absolute bottom-1/4 -right-20 w-96 h-96 rounded-full blur-3xl" style={{ background: 'rgba(124,92,255,0.07)' }} />
         </div>
-        <div className="relative bg-gray-900/80 backdrop-blur-xl p-8 rounded-3xl border border-gray-800 w-full max-w-md shadow-2xl shadow-black/50 space-y-6">
+        <div className="relative w-full max-w-md space-y-6 p-8 rounded-[20px] backdrop-blur-[10px]" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
           <div className="text-center space-y-2">
-            <div className="bg-gradient-to-br from-emerald-400 to-emerald-600 p-4 rounded-2xl w-fit mx-auto shadow-lg shadow-emerald-500/30">
+            <div className="p-4 rounded-2xl w-fit mx-auto" style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 8px 30px rgba(0,229,168,0.35)' }}>
               <Dumbbell size={40} className="text-white" />
             </div>
-            <h1 className="text-3xl font-black uppercase text-white tracking-tight truncate">Gym<span className="text-emerald-400">Pro</span></h1>
-            <p className="text-gray-500 text-sm">Tu compañero de entrenamiento</p>
+            <h1 className="text-3xl font-black uppercase text-white tracking-tight truncate">Gym<span style={{ color: '#00E5A8' }}>Pro</span></h1>
+            <p className="text-sm" style={{ color: '#A8B3CF' }}>Tu compañero de entrenamiento</p>
           </div>
-          
+
           <div className="space-y-4">
             <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#6B7895' }}>
                 <Mail size={18} />
               </div>
-              <input 
+              <input
                 suppressHydrationWarning
-                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl p-3 pl-12 outline-none text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all" 
-                value={authEmail} 
-                onChange={e => setAuthEmail(e.target.value)} 
-                placeholder="Email" 
+                className="w-full rounded-xl p-3 pl-12 outline-none text-white transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                value={authEmail}
+                onChange={e => setAuthEmail(e.target.value)}
+                placeholder="Email"
               />
             </div>
             <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#6B7895' }}>
                 <Lock size={18} />
               </div>
-              <input 
+              <input
                 suppressHydrationWarning
-                type="password" 
-                title="password" 
-                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl p-3 pl-12 outline-none text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all" 
-                value={authPass} 
-                onChange={e => setAuthPass(e.target.value)} 
-                placeholder="Contraseña" 
+                type="password"
+                title="password"
+                className="w-full rounded-xl p-3 pl-12 outline-none text-white transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                value={authPass}
+                onChange={e => setAuthPass(e.target.value)}
+                placeholder="Contraseña"
               />
             </div>
           </div>
-          
-          <button 
-            onClick={handleLogin} 
-            disabled={isSaving} 
-            className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 py-4 rounded-xl font-black uppercase text-white hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-emerald-500/30 active:scale-[0.98]"
+
+          <button
+            onClick={handleLogin}
+            disabled={isSaving}
+            className="w-full py-4 rounded-[30px] font-bold uppercase text-white disabled:opacity-50 transition-all active:scale-[0.96]"
+            style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 8px 30px rgba(0,229,168,0.45)' }}
           >
             {isSaving ? (
               <span className="flex items-center justify-center gap-2">
@@ -545,9 +549,9 @@ useEffect(() => {
               </span>
             ) : 'Entrar'}
           </button>
-          
-          <p className="text-center text-gray-500 text-xs">
-            ¿No tienes cuenta? <span className="text-emerald-400 font-bold">Regístrate</span>
+
+          <p className="text-center text-xs" style={{ color: '#6B7895' }}>
+            ¿No tienes cuenta? <span className="font-bold" style={{ color: '#00E5A8' }}>Regístrate</span>
           </p>
         </div>
       </div>
@@ -556,7 +560,7 @@ useEffect(() => {
 
   // ── Main app ──────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans relative">
+    <div className="flex h-screen text-white overflow-hidden font-sans relative" style={{ background: 'transparent' }}>
 
       <style>{`
         @keyframes logoPopIn {
@@ -570,8 +574,8 @@ useEffect(() => {
           to   { transform: translateY(0);    opacity: 1; }
         }
         @keyframes glowPulse {
-          0%, 100% { box-shadow: 0 0 40px 8px rgba(16,185,129,0.45); }
-          50%       { box-shadow: 0 0 90px 35px rgba(16,185,129,0.85); }
+          0%, 100% { box-shadow: 0 0 40px 8px rgba(0,229,168,0.45); }
+          50%       { box-shadow: 0 0 90px 35px rgba(0,194,255,0.7); }
         }
         @keyframes rippleOut {
           0%   { transform: scale(0.6); opacity: 0.7; }
@@ -599,12 +603,14 @@ useEffect(() => {
       {/* ── Splash overlay ──────────────────────────────────────────── */}
       {showSplash && (
         <div
-          className="fixed inset-0 z-[999] bg-gray-950 flex items-center justify-center overflow-hidden"
+          className="fixed inset-0 z-[999] flex items-center justify-center overflow-hidden"
+          style={{ background: '#0B1220' }}
           style={splashExiting ? { animation: 'splashExit 0.6s cubic-bezier(0.4,0,1,1) forwards' } : {}}
         >
           {/* Pulsing background glow */}
           <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] bg-emerald-500 rounded-full blur-[100px]"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] rounded-full blur-[100px]"
+            style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)' }}
             style={{ animation: 'bgBreath 1.4s ease-in-out infinite' }}
           />
 
@@ -612,7 +618,8 @@ useEffect(() => {
           {[0, 1, 2].map(i => (
             <div
               key={i}
-              className="absolute top-1/2 left-1/2 w-32 h-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-400/50"
+              className="absolute top-1/2 left-1/2 w-32 h-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
+              style={{ borderColor: 'rgba(0,229,168,0.4)' }}
               style={{ animation: `rippleOut 1.6s ease-out ${i * 0.45}s infinite` }}
             />
           ))}
@@ -621,10 +628,11 @@ useEffect(() => {
           <div className="relative flex flex-col items-center gap-6 px-8">
             {/* Logo icon */}
             <div
-              className="bg-gradient-to-br from-emerald-400 to-emerald-600 p-7 rounded-[2rem]"
+              className="p-7 rounded-[2rem]"
               style={{
+                background: 'linear-gradient(135deg,#00E5A8,#00C2FF)',
                 animation: 'logoPopIn 0.75s cubic-bezier(0.175,0.885,0.32,1.275) forwards, glowPulse 1.3s ease-in-out 0.75s infinite',
-                boxShadow: '0 0 40px 8px rgba(16,185,129,0.45)'
+                boxShadow: '0 0 40px 8px rgba(0,229,168,0.45)'
               }}
             >
               <Dumbbell size={60} className="text-white" />
@@ -636,19 +644,20 @@ useEffect(() => {
               style={{ animation: 'textSlideUp 0.55s ease-out 0.45s both' }}
             >
               <h1 className="text-6xl font-black uppercase text-white tracking-tight">
-                Gym<span className="text-emerald-400">Pro</span>
+                Gym<span style={{ color: '#00E5A8' }}>Pro</span>
               </h1>
-              <p className="text-gray-400 text-sm tracking-[0.25em] uppercase font-bold mt-1">
+              <p className="text-sm tracking-[0.25em] uppercase font-bold mt-1" style={{ color: '#A8B3CF' }}>
                 Tu compañero de entrenamiento
               </p>
             </div>
 
             {/* Call to action */}
             <div
-              className="mt-2 bg-emerald-500/15 border border-emerald-500/30 px-8 py-3 rounded-2xl"
+              className="mt-2 px-8 py-3 rounded-2xl"
+              style={{ background: 'rgba(0,229,168,0.1)', border: '1px solid rgba(0,229,168,0.25)' }}
               style={{ animation: 'textSlideUp 0.55s ease-out 0.85s both' }}
             >
-              <p className="text-emerald-400 font-black uppercase tracking-widest text-sm">
+              <p className="font-black uppercase tracking-widest text-sm" style={{ color: '#00E5A8' }}>
                 ¡Listo para entrenar!
               </p>
             </div>
@@ -657,49 +666,50 @@ useEffect(() => {
       )}
 
       {/* FIX: nombre de elemento faltante — era "< className=..." */}
-      <div className="flex-1 overflow-y-auto bg-gray-900 pb-28 pt-12 md:pt-10">
+      <div className="flex-1 overflow-y-auto pb-28 pt-12 md:pt-10" style={{ background: 'transparent' }}>
         <div className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8">
 
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
             <div className="space-y-8">
               <header
-                className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl text-center"
-                style={{ animation: 'homeCardIn 0.55s ease-out both' }}
+                className="p-6 rounded-[20px] text-center backdrop-blur-[10px]"
+                style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', animation: 'homeCardIn 0.55s ease-out both' }}
               >
                 <div className="mb-6">
-                  <p className="text-sm text-gray-400 uppercase font-medium tracking-widest mb-2">Bienvenido</p>
+                  <p className="text-xs uppercase font-semibold tracking-widest mb-2" style={{ color: '#6B7895' }}>Bienvenido</p>
                   <h1 className="text-4xl md:text-5xl font-black text-white truncate">{userStats.name}</h1>
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">{t('weight')}</p>
-                    <p className="text-xl font-bold text-white">{userStats.weight}kg</p>
+                  <div className="p-4 rounded-2xl" style={{ background: 'linear-gradient(135deg,rgba(30,58,138,0.6),rgba(37,99,235,0.4))', border: '1px solid rgba(37,99,235,0.3)' }}>
+                    <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#60a5fa' }}>{t('weight')}(Kg)</p>
+                    <p className="text-xl font-bold text-white">{userStats.weight}</p>
                   </div>
-                  <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">{t('height')}</p>
-                    <p className="text-xl font-bold text-white">{userStats.height}m</p>
+                  <div className="p-4 rounded-2xl" style={{ background: 'linear-gradient(135deg,rgba(76,29,149,0.6),rgba(124,58,237,0.4))', border: '1px solid rgba(124,58,237,0.3)' }}>
+                    <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#a78bfa' }}>{t('height')}(m)</p>
+                    <p className="text-xl font-bold text-white">{userStats.height}</p>
                   </div>
-                  <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
-                    <p className="text-[10px] text-emerald-500 uppercase font-bold">{t('streak')}</p>
-                    <p className="text-xl font-bold text-emerald-400">{streak} / {userStats.trainingDays}</p>
+                  <div className="p-4 rounded-2xl" style={{ background: 'linear-gradient(135deg,rgba(6,95,70,0.6),rgba(16,185,129,0.4))', border: '1px solid rgba(16,185,129,0.3)' }}>
+                    <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#00E5A8' }}>{t('streak')}</p>
+                    <p className="text-xl font-bold text-white">{streak} / {userStats.trainingDays}</p>
                   </div>
                 </div>
               </header>
 
               <section className="space-y-4" style={{ animation: 'homeCTABounce 0.6s cubic-bezier(0.175,0.885,0.32,1.275) 0.15s both' }}>
-                <h2 className="text-[10px] font-black uppercase text-gray-500 px-2 tracking-widest text-center">Selecciona tu entrenamiento del día</h2>
+                <h2 className="text-[10px] font-bold uppercase px-2 tracking-widest text-center" style={{ color: '#6B7895' }}>Selecciona tu entrenamiento del día</h2>
                 <button
                   onClick={() => setCurrentView('myRoutines')}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 p-8 rounded-[2.5rem] flex items-center justify-between group transition-all active:scale-95 shadow-xl shadow-emerald-500/20"
+                  className="w-full p-5 md:p-8 rounded-[30px] flex items-center transition-all active:scale-[0.96] overflow-hidden"
+                  style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 8px 30px rgba(0,229,168,0.45)' }}
                 >
-                  <div className="flex items-center gap-5">
-                    <div className="bg-white/20 p-5 rounded-2xl">
-                      <PlayIcon size={28} fill="white" />
+                  <div className="flex items-center gap-3 md:gap-5 min-w-0">
+                    <div className="p-3 md:p-4 rounded-2xl shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                      <PlayIcon size={24} fill="white" />
                     </div>
                     <div className="text-left min-w-0">
-                      <p className="text-white font-black uppercase text-xl leading-none truncate">Empezar Mi Entreno</p>
-                      <p className="text-white/50 text-xs font-bold uppercase mt-3 tracking-widest truncate">
+                      <p className="text-white font-black uppercase text-base md:text-xl leading-none truncate" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.2)' }}>Empezar Mi Entreno</p>
+                      <p className="text-xs font-bold uppercase mt-2 tracking-widest truncate" style={{ color: 'rgba(255,255,255,0.65)' }}>
                         <span className="text-white font-black">{routines.length}</span> rutinas disponibles
                       </p>
                     </div>
@@ -708,27 +718,41 @@ useEffect(() => {
               </section>
 
               {history[0] && (
-                <section className="bg-gray-800/40 p-5 rounded-3xl border border-gray-700" style={{ animation: 'homeCardIn 0.55s ease-out 0.3s both' }}>
-                  <h2 className="text-[10px] font-black uppercase text-gray-500 mb-3 flex items-center gap-2"><History size={14}/> {t('lastWorkout')}</h2>
+                <section
+                  className="p-5 rounded-[20px] backdrop-blur-[10px]"
+                  style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', animation: 'homeCardIn 0.55s ease-out 0.3s both' }}
+                >
+                  <h2 className="text-[10px] font-bold uppercase mb-3 flex items-center gap-2" style={{ color: '#6B7895' }}>
+                    <History size={14}/> {t('lastWorkout')}
+                  </h2>
                   <div className="flex justify-between items-center min-w-0">
-                    <div className="min-w-0"><h3 className="text-lg font-bold text-emerald-400 truncate">{history[0].routine_name}</h3><p className="text-xs text-gray-400 truncate">{new Date(history[0].date).toLocaleDateString()}</p></div>
-                    <div className="text-right"><p className="text-lg font-mono font-bold">{history[0].duration}</p><p className="text-[10px] uppercase text-gray-500 font-bold">{history[0].total_sets} Series totales</p></div>
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-bold truncate" style={{ color: '#00E5A8' }}>{history[0].routine_name}</h3>
+                      <p className="text-xs truncate" style={{ color: '#A8B3CF' }}>{new Date(history[0].date).toLocaleDateString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-mono font-bold text-white">{history[0].duration}</p>
+                      <p className="text-[10px] uppercase font-bold" style={{ color: '#6B7895' }}>{history[0].total_sets} Series totales</p>
+                    </div>
                   </div>
                 </section>
               )}
 
-              <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-xl space-y-4" style={{ animation: 'homeCardIn 0.55s ease-out 0.45s both' }}>
-                <h2 className="text-sm font-black uppercase text-emerald-400 flex items-center gap-2">
+              <div
+                className="p-6 rounded-[20px] space-y-4 backdrop-blur-[10px]"
+                style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', animation: 'homeCardIn 0.55s ease-out 0.45s both' }}
+              >
+                <h2 className="text-sm font-bold uppercase flex items-center gap-2" style={{ color: '#00E5A8' }}>
                   <PlusCircle size={18}/> Notas
                 </h2>
-                <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-700/50">
-                  <p className="text-gray-300 text-sm leading-relaxed italic">
+                <div className="p-5 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p className="text-sm leading-relaxed italic" style={{ color: '#A8B3CF' }}>
                     "{userStats.injuries || 'Sin notas'}"
                   </p>
                 </div>
                 <div className="flex items-center gap-2 px-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00E5A8' }} />
+                  <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: '#6B7895' }}>
                     Información personal y de preferencia
                   </span>
                 </div>
@@ -986,45 +1010,100 @@ useEffect(() => {
 
           {/* ── MIS RUTINAS (vista limpia para iniciar workout) ────── */}
           {currentView === 'myRoutines' && (
-            <div className="space-y-6 animate-in fade-in">
-              <div className="flex items-center gap-3">
-                <PlayIcon size={22} className="text-emerald-500" />
-                <h1 className="text-2xl font-black uppercase tracking-tighter truncate">Mis Rutinas</h1>
+            <div className="space-y-6 pb-6" style={{ animation: 'homeCardIn 0.45s ease-out both' }}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest mb-1" style={{ color: '#6B7895' }}>Tu plan</p>
+                  <h1 className="text-3xl font-black uppercase tracking-tight text-white">Mis Rutinas</h1>
+                </div>
+                <div
+                  className="p-3 rounded-2xl"
+                  style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 20px rgba(0,229,168,0.35)' }}
+                >
+                  <Dumbbell size={22} className="text-white" />
+                </div>
               </div>
 
+              {/* Stats strip */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 rounded-2xl flex items-center gap-3" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(0,229,168,0.15)' }}>
+                    <Dumbbell size={16} style={{ color: '#00E5A8' }} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-black text-white leading-none">{routines.length}</p>
+                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color: '#6B7895' }}>Rutinas</p>
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl flex items-center gap-3" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(124,92,255,0.15)' }}>
+                    <Activity size={16} style={{ color: '#7C5CFF' }} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-black text-white leading-none">{routines.reduce((a: number, r: any) => a + (r.exercises?.length || 0), 0)}</p>
+                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color: '#6B7895' }}>Ejercicios</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* List */}
               <div className="space-y-3">
                 {routines.length === 0 && (
-                  <div className="text-center py-16 text-gray-500">
-                    <Dumbbell size={40} className="mx-auto mb-3 opacity-30" />
-                    <p className="font-bold uppercase text-sm">No tienes rutinas aún</p>
+                  <div className="text-center py-20 rounded-[20px]" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                      <Dumbbell size={32} style={{ color: '#6B7895' }} />
+                    </div>
+                    <p className="font-bold uppercase text-sm mb-1" style={{ color: '#A8B3CF' }}>No tienes rutinas aún</p>
+                    <p className="text-xs mb-5" style={{ color: '#6B7895' }}>Crea tu primera rutina para empezar</p>
                     <button
                       onClick={() => { setCurrentView('routines'); setActiveSettingsTab('rutinas'); }}
-                      className="mt-4 text-emerald-400 text-xs font-bold uppercase tracking-widest"
+                      className="px-6 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-widest text-white"
+                      style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 20px rgba(0,229,168,0.3)' }}
                     >
                       + Crear rutina
                     </button>
                   </div>
                 )}
 
-                {routines.map(r => (
+                {routines.map((r, idx) => (
                   <div
                     key={r.id}
-                    className="bg-gray-800 border border-gray-700 rounded-2xl p-5 flex items-center justify-between gap-3 group hover:border-emerald-500/30 transition-all"
+                    className="p-5 rounded-[20px] flex items-center justify-between gap-4 transition-all active:scale-[0.98] backdrop-blur-[10px]"
+                    style={{
+                      background: 'rgba(18,26,42,0.9)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                      animation: `homeCardIn 0.4s ease-out ${idx * 0.07}s both`
+                    }}
                   >
+                    {/* Color accent bar */}
+                    <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: 'linear-gradient(180deg,#00E5A8,#00C2FF)' }} />
+
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-black uppercase text-base text-white group-hover:text-emerald-400 transition-colors truncate">
-                        {r.name}
-                      </h3>
-                      <p className="text-xs text-gray-500 font-bold mt-0.5">
-                        {r.exercises?.length || 0} ejercicios
-                      </p>
+                      <h3 className="font-black uppercase text-base text-white truncate">{r.name}</h3>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="flex items-center gap-1 text-[10px] font-bold uppercase" style={{ color: '#6B7895' }}>
+                          <Dumbbell size={10} /> {r.exercises?.length || 0} ejercicios
+                        </span>
+                        {r.exercises?.length > 0 && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase" style={{ color: '#6B7895' }}>
+                            <Activity size={10} /> {r.exercises.reduce((a: number, e: any) => a + (parseInt(e.sets) || 3), 0)} series
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => { setActiveRoutine(r); setCurrentView('workout'); }}
-                      className="w-12 h-12 bg-emerald-500 hover:bg-emerald-400 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30 active:scale-95 transition-all flex-shrink-0"
-                    >
-                      <PlayIcon size={20} fill="white" className="text-white ml-0.5" />
-                    </button>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => { setActiveRoutine(r); setCurrentView('workout'); }}
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-lg"
+                        style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 20px rgba(0,229,168,0.4)' }}
+                      >
+                        <PlayIcon size={20} fill="white" className="text-white ml-0.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1083,101 +1162,149 @@ useEffect(() => {
 
           {/* ── ACTIVE WORKOUT ─────────────────────────────────────────── */}
           {currentView === 'workout' && activeRoutine && (
-            <div className="max-w-2xl mx-auto w-full space-y-8 animate-in slide-in-from-bottom-10 pb-32">
-              <div className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-xl border-b border-gray-800/50 px-6 py-6 rounded-b-[2.5rem] shadow-2xl">
-                <div className="flex justify-between items-center mb-3">
+            <div className="max-w-2xl mx-auto w-full space-y-5 pb-36" style={{ animation: 'homeCardIn 0.45s ease-out both' }}>
+
+              {/* ── Sticky header ── */}
+              <div
+                className="sticky top-0 z-30 px-5 py-4 rounded-[20px] backdrop-blur-[16px]"
+                style={{ background: 'rgba(11,18,32,0.95)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+              >
+                <div className="flex justify-between items-center">
                   <div className="flex-1 min-w-0 pr-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1">Entrenamiento Activo</p>
-                    <h2 className="text-2xl font-black tracking-tighter uppercase text-white break-words">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.25em] mb-0.5" style={{ color: '#00E5A8' }}>
+                      Entrenamiento Activo
+                    </p>
+                    <h2 className="text-xl font-black tracking-tight uppercase text-white truncate">
                       {activeRoutine.name}
                     </h2>
                     <div className="flex items-center gap-2 mt-2">
-                      <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: isActive ? '#00E5A8' : '#6B7895', animation: isActive ? 'bgBreath 1.4s ease-in-out infinite' : 'none' }}
+                      />
                       <span className="text-2xl font-mono font-black text-white leading-none">{formatTime(workoutTimer)}</span>
+                      {isActive && (
+                        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,229,168,0.12)', color: '#00E5A8' }}>
+                          En curso
+                        </span>
+                      )}
                     </div>
                   </div>
                   <button
                     onClick={() => {
-                      if (!isActive) {
-                        setIsActive(true)
-                      } else {
-                        if(confirm('¿Deseas finalizar el entrenamiento?')) finishWorkout()
-                      }
+                      if (!isActive) { setIsActive(true) }
+                      else { setShowFinishConfirm(true) }
                     }}
-                    className={`px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-all text-white ${
-                      isActive
-                        ? 'bg-red-500 hover:bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
-                        : 'bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20'
-                    }`}
+                    className="px-5 py-3 rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-all text-white"
+                    style={isActive
+                      ? { background: 'linear-gradient(135deg,#ef4444,#dc2626)', boxShadow: '0 4px 20px rgba(239,68,68,0.35)' }
+                      : { background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 20px rgba(0,229,168,0.4)' }
+                    }
                   >
                     {isActive ? t('finish') : 'INICIAR'}
                   </button>
                 </div>
               </div>
 
-
-              <div className="px-4 space-y-8 pb-32">
-                {activeRoutine.exercises.map((exercise: any) => {
+              {/* ── Exercise cards ── */}
+              <div className="space-y-4">
+                {activeRoutine.exercises.map((exercise: any, exIdx: number) => {
                   const numSets = parseInt(exercise.sets) || 3;
+                  const completedSets = Array.from({ length: numSets }).filter((_, i) =>
+                    workoutData[exercise.id]?.[i]?.completed
+                  ).length;
+                  const allDone = completedSets === numSets;
+
                   return (
-                    <div key={`workout-ex-${exercise.id}`} className="bg-gray-800/40 rounded-[2.5rem] border border-gray-700/50 overflow-hidden shadow-xl backdrop-blur-sm">
-                      <div className="p-6 pb-0 flex items-center gap-4">
-                        <div className="relative w-20 h-20 flex-shrink-0 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-white/5 shadow-2xl flex items-center justify-center overflow-hidden group">
-                          <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div
+                      key={`workout-ex-${exercise.id}`}
+                      className="rounded-[20px] overflow-hidden backdrop-blur-[10px]"
+                      style={{
+                        background: allDone ? 'rgba(0,229,168,0.06)' : 'rgba(18,26,42,0.9)',
+                        border: allDone ? '1px solid rgba(0,229,168,0.25)' : '1px solid rgba(255,255,255,0.05)',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+                        animation: `homeCardIn 0.4s ease-out ${exIdx * 0.06}s both`,
+                        transition: 'background 0.4s ease, border-color 0.4s ease'
+                      }}
+                    >
+                      {/* Exercise header */}
+                      <div className="p-5 flex items-center gap-4">
+                        <div
+                          className="relative w-18 h-18 flex-shrink-0 rounded-2xl overflow-hidden flex items-center justify-center"
+                          style={{ width: 72, height: 72, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                        >
                           {(exercise.gif_url || exercise.gifUrl) ? (
                             <img
                               src={exercise.gif_url || exercise.gifUrl}
                               alt={exercise.name}
-                              className="w-full h-full object-contain p-2 relative z-10 transition-transform duration-500 group-hover:scale-110"
+                              className="w-full h-full object-contain p-1"
                               loading="lazy"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.parentElement?.querySelector('.fallback-icon');
-                                if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                                const fb = e.currentTarget.parentElement?.querySelector('.fallback-icon');
+                                if (fb) (fb as HTMLElement).classList.remove('hidden');
                               }}
                             />
                           ) : null}
-                          <div className={`fallback-icon flex flex-col items-center justify-center opacity-40 ${(exercise.gif_url || exercise.gifUrl) ? 'hidden' : ''}`}>
-                            <Dumbbell size={24} className="text-emerald-500 mb-1" />
-                            <span className="text-[7px] font-black uppercase tracking-widest text-emerald-400">GymPro</span>
+                          <div className={`fallback-icon flex flex-col items-center justify-center opacity-50 ${(exercise.gif_url || exercise.gifUrl) ? 'hidden' : ''}`}>
+                            <Dumbbell size={22} style={{ color: '#00E5A8' }} />
                           </div>
                         </div>
+
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-xl font-black text-white uppercase tracking-tight break-words">
+                          <h3 className="text-base font-black text-white uppercase tracking-tight truncate">
                             {exercise.name || 'Ejercicio'}
                           </h3>
-                          <div className="flex gap-2 mt-1">
-                            <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,229,168,0.1)', color: '#00E5A8', border: '1px solid rgba(0,229,168,0.2)' }}>
                               {exercise.target || 'Cuerpo'}
                             </span>
-                            <span className="px-2 py-0.5 bg-gray-700/50 border border-white/5 rounded-md text-[9px] font-bold text-gray-400 uppercase tracking-wider">
-                              {exercise.equipment || 'Equipo'}
-                            </span>
+                            {exercise.equipment && (
+                              <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider" style={{ background: 'rgba(255,255,255,0.05)', color: '#6B7895', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                {exercise.equipment}
+                              </span>
+                            )}
                           </div>
+                        </div>
+
+                        {/* Progress pill */}
+                        <div className="shrink-0 flex flex-col items-center gap-1">
+                          <span className="text-lg font-black" style={{ color: allDone ? '#00E5A8' : '#A8B3CF' }}>
+                            {completedSets}/{numSets}
+                          </span>
+                          <div className="w-12 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${(completedSets / numSets) * 100}%`, background: 'linear-gradient(90deg,#00E5A8,#00C2FF)' }}
+                            />
+                          </div>
+                          <span className="text-[8px] uppercase font-bold" style={{ color: '#6B7895' }}>series</span>
                         </div>
                       </div>
 
-                      <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-[32px_1fr_1fr_40px] gap-4 px-2">
-                          <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest">Set</span>
-                          <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest text-center">Peso (kg)</span>
-                          <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest text-center">Reps</span>
-                          <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest text-right">OK</span>
+                      {/* Divider */}
+                      <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '0 20px' }} />
+
+                      {/* Sets table */}
+                      <div className="p-5 space-y-3">
+                        <div className="grid grid-cols-[28px_1fr_1fr_36px] gap-3 px-1 mb-1">
+                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#6B7895' }}>Set</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: '#6B7895' }}>Peso (kg)</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: '#6B7895' }}>Reps</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-right" style={{ color: '#6B7895' }}>OK</span>
                         </div>
-                        <div className="space-y-3">
-                          {Array.from({ length: numSets }).map((_, index) => (
-                            <ExerciseSetRow 
-                              key={`set-${exercise.id}-${index}`} 
-                              index={index} 
-                              set={workoutData[exercise.id]?.[index] || { weight: "", reps: exercise.reps || "10", completed: false }} 
-                              onUpdate={(updates: any) => updateSet(exercise.id, index, updates)} 
-                              onToggleComplete={() => { 
-                                const currentSet = workoutData[exercise.id]?.[index];
-                                updateSet(exercise.id, index, { completed: !currentSet?.completed }); 
-                              }} 
-                            />
-                          ))}
-                        </div>
+                        {Array.from({ length: numSets }).map((_, index) => (
+                          <ExerciseSetRow
+                            key={`set-${exercise.id}-${index}`}
+                            index={index}
+                            set={workoutData[exercise.id]?.[index] || { weight: '', reps: exercise.reps || '10', completed: false }}
+                            onUpdate={(updates: any) => updateSet(exercise.id, index, updates)}
+                            onToggleComplete={() => {
+                              const currentSet = workoutData[exercise.id]?.[index];
+                              updateSet(exercise.id, index, { completed: !currentSet?.completed });
+                            }}
+                          />
+                        ))}
                       </div>
                     </div>
                   );
@@ -1189,26 +1316,35 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* ── BOTTOM NAV — FIX: estaba fuera del return ────────────────── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[999] h-20 bg-[#111827] border-t border-gray-800 flex items-center justify-around px-2 shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
-        <button type="button" onClick={() => handleNavigate('home')} className="flex flex-col items-center justify-center w-full h-full gap-1">
-          <Home className={`w-6 h-6 ${currentView === 'home' ? 'text-emerald-500' : 'text-gray-500'}`} />
-          <span className="text-[10px] font-bold uppercase">{t('home')}</span>
-        </button>
-        <button type="button" onClick={() => handleNavigate('nutrition')} className="flex flex-col items-center justify-center w-full h-full gap-1">
-          <Utensils className={`w-6 h-6 ${currentView === 'nutrition' ? 'text-emerald-500' : 'text-gray-500'}`} />
-          <span className="text-[10px] font-bold uppercase">{t('nutrition')}</span>
-        </button>
-        {userStats.role === 'admin' && (
-          <button type="button" onClick={() => handleNavigate('admin')} className="flex flex-col items-center justify-center w-full h-full gap-1">
-            <Settings className={`w-6 h-6 ${currentView === 'admin' ? 'text-emerald-500' : 'text-gray-500'}`} />
-            <span className="text-[10px] font-bold uppercase">Admin</span>
-          </button>
-        )}
-        <button type="button" onClick={() => handleNavigate('progress')} className="flex flex-col items-center justify-center w-full h-full gap-1">
-          <User className={`w-6 h-6 ${currentView === 'progress' ? 'text-emerald-500' : 'text-gray-500'}`} />
-          <span className="text-[10px] font-bold uppercase">{t('profile')}</span>
-        </button>
+      {/* ── BOTTOM NAV ───────────────────────────────────────────────── */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-[999] h-20 flex items-center justify-around px-2"
+        style={{ background: '#0B1220', borderTop: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 -10px 30px rgba(0,0,0,0.4)' }}
+      >
+        {[
+          { view: 'home',      icon: Home,     label: t('home') },
+          { view: 'nutrition', icon: Utensils, label: t('nutrition') },
+          ...(userStats.role === 'admin' ? [{ view: 'admin', icon: Settings, label: 'Admin' }] : []),
+          { view: 'progress',  icon: User,     label: t('profile') },
+        ].map(({ view, icon: Icon, label }) => {
+          const active = currentView === view;
+          return (
+            <button
+              key={view}
+              type="button"
+              onClick={() => handleNavigate(view)}
+              className="flex flex-col items-center justify-center w-full h-full gap-1 relative transition-all active:scale-95"
+            >
+              {active && (
+                <div className="absolute top-0 w-8 h-0.5 rounded-full" style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)' }} />
+              )}
+              <Icon size={22} style={{ color: active ? '#00E5A8' : '#6B7895', transition: 'color 0.2s ease' }} />
+              <span className="text-[10px] font-bold uppercase" style={{ color: active ? '#00E5A8' : '#6B7895', transition: 'color 0.2s ease' }}>
+                {label}
+              </span>
+            </button>
+          );
+        })}
       </nav>
 
       {/* ── EDIT ROUTINE MODAL ───────────────────────────────────────── */}
@@ -1260,60 +1396,141 @@ useEffect(() => {
 
       {/* ── REST TIMER OVERLAY ───────────────────────────────────────── */}
       {isResting && (() => {
-        const radius = 90;
+        const radius = 88;
         const circumference = 2 * Math.PI * radius;
         const progress = totalRestTime > 0 ? restTimer / totalRestTime : 0;
         const dashOffset = circumference * (1 - progress);
         const mins = Math.floor(restTimer / 60);
         const secs = restTimer % 60;
+        const strokeColor = progress > 0.5 ? '#00E5A8' : progress > 0.25 ? '#f59e0b' : '#ef4444';
+        const glowColor  = progress > 0.5 ? 'rgba(0,229,168,0.4)' : progress > 0.25 ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.4)';
         return (
-          <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/70 backdrop-blur-md">
-            <div className="flex flex-col items-center gap-6">
-              {/* título */}
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Tiempo de descanso</p>
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center backdrop-blur-xl" style={{ background: 'rgba(11,18,32,0.92)' }}>
 
-              {/* anillo circular */}
+            {/* Fondo glow dinámico */}
+            <div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full blur-[80px] pointer-events-none transition-colors duration-700"
+              style={{ background: glowColor, opacity: 0.35 }}
+            />
+
+            <div className="relative flex flex-col items-center gap-8 px-8">
+
+              {/* Label */}
+              <div className="text-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.35em]" style={{ color: '#6B7895' }}>Recuperación</p>
+                <p className="text-sm font-black uppercase tracking-tight text-white mt-0.5">Tiempo de Descanso</p>
+              </div>
+
+              {/* Ring */}
               <div className="relative flex items-center justify-center">
-                <svg width="220" height="220" className="-rotate-90">
-                  {/* track */}
-                  <circle cx="110" cy="110" r={radius} fill="none" stroke="#1f2937" strokeWidth="10" />
-                  {/* progreso */}
+                {/* Outer glow ring */}
+                <div
+                  className="absolute rounded-full transition-all duration-700"
+                  style={{ width: 220, height: 220, boxShadow: `0 0 60px 10px ${glowColor}`, opacity: 0.5 }}
+                />
+                <svg width="224" height="224" className="-rotate-90">
+                  <defs>
+                    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor={strokeColor} />
+                      <stop offset="100%" stopColor={progress > 0.5 ? '#00C2FF' : strokeColor} />
+                    </linearGradient>
+                  </defs>
+                  {/* Track */}
+                  <circle cx="112" cy="112" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" />
+                  {/* Progress */}
                   <circle
-                    cx="110" cy="110" r={radius} fill="none"
-                    stroke={progress > 0.4 ? '#10b981' : progress > 0.2 ? '#f59e0b' : '#ef4444'}
-                    strokeWidth="10"
+                    cx="112" cy="112" r={radius} fill="none"
+                    stroke="url(#ringGrad)"
+                    strokeWidth="12"
                     strokeLinecap="round"
                     strokeDasharray={circumference}
                     strokeDashoffset={dashOffset}
                     style={{ transition: 'stroke-dashoffset 0.8s linear, stroke 0.5s ease' }}
                   />
                 </svg>
-                {/* número */}
+
+                {/* Center content */}
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-6xl font-black font-mono text-white leading-none">
-                    {mins > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : `${secs}`}
+                  <span className="text-6xl font-black font-mono text-white leading-none" style={{ textShadow: `0 0 30px ${strokeColor}` }}>
+                    {mins > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : String(secs).padStart(2, '0')}
                   </span>
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
-                    {mins > 0 ? 'min' : 'seg'}
+                  <span className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: strokeColor }}>
+                    {mins > 0 ? 'minutos' : 'segundos'}
                   </span>
                 </div>
               </div>
 
-              {/* controles */}
-              <div className="flex items-center justify-center">
-                <button
-                  onClick={() => setIsResting(false)}
-                  className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-emerald-500/30"
-                >
-                  <SkipForward size={22} className="text-white" />
-                </button>
+              {/* Progress bar */}
+              <div className="w-48 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${progress * 100}%`, background: `linear-gradient(90deg, ${strokeColor}, ${progress > 0.5 ? '#00C2FF' : strokeColor})` }}
+                />
               </div>
 
-              <p className="text-[10px] text-gray-600 uppercase font-bold tracking-widest">Toca saltar para continuar</p>
+              {/* Skip button */}
+              <button
+                onClick={() => setIsResting(false)}
+                className="flex items-center gap-3 px-8 py-4 rounded-[30px] font-black uppercase text-sm tracking-widest text-white transition-all active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 8px 30px rgba(0,229,168,0.45)' }}
+              >
+                <SkipForward size={18} className="text-white" />
+                Saltar descanso
+              </button>
+
+              <p className="text-[9px] uppercase font-bold tracking-widest" style={{ color: '#6B7895' }}>
+                El siguiente ejercicio te espera
+              </p>
             </div>
           </div>
         );
       })()}
+
+      {/* ── FINISH WORKOUT CONFIRM MODAL ─────────────────────────────── */}
+      {showFinishConfirm && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-6 backdrop-blur-xl" style={{ background: 'rgba(11,18,32,0.88)' }}>
+          <div
+            className="w-full max-w-sm rounded-[24px] p-7 space-y-6"
+            style={{ background: 'rgba(18,26,42,0.98)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
+          >
+            {/* Icon */}
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                <CheckCircle size={32} style={{ color: '#ef4444' }} />
+              </div>
+            </div>
+
+            {/* Text */}
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-black uppercase text-white tracking-tight">¿Finalizar entreno?</h3>
+              <p className="text-sm" style={{ color: '#A8B3CF' }}>
+                Se guardará tu progreso: <span className="font-bold text-white">{formatTime(workoutTimer)}</span> de entrenamiento
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />
+
+            {/* Actions */}
+            <div className="space-y-3">
+              <button
+                onClick={() => { setShowFinishConfirm(false); finishWorkout(); }}
+                className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest text-white transition-all active:scale-[0.97]"
+                style={{ background: 'linear-gradient(135deg,#ef4444,#dc2626)', boxShadow: '0 6px 24px rgba(239,68,68,0.35)' }}
+              >
+                Sí, finalizar
+              </button>
+              <button
+                onClick={() => setShowFinishConfirm(false)}
+                className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest transition-all active:scale-[0.97]"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#A8B3CF' }}
+              >
+                Seguir entrenando
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── WORKOUT NAV GUARD MODAL ───────────────────────────────────── */}
       {pendingNavTarget && (
