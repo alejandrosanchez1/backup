@@ -9,6 +9,7 @@ type Profile = {
   id: string; full_name: string; weight: string; height: string
   age: number; gender: string; role: string; experience_level: string
   training_days: number; injuries: string; diet_style: string; focus_areas: string[]
+  email?: string
 }
 type Meal = { name: string; protein: string[]; carbs: string[]; fat: string[] }
 type RoutineEx = { id: number; name: string; sets: number; reps: string; rest_time: number }
