@@ -604,14 +604,12 @@ useEffect(() => {
       {showSplash && (
         <div
           className="fixed inset-0 z-[999] flex items-center justify-center overflow-hidden"
-          style={{ background: '#0B1220' }}
-          style={splashExiting ? { animation: 'splashExit 0.6s cubic-bezier(0.4,0,1,1) forwards' } : {}}
+          style={{ background: '#0B1220', ...(splashExiting ? { animation: 'splashExit 0.6s cubic-bezier(0.4,0,1,1) forwards' } : {}) }}
         >
           {/* Pulsing background glow */}
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] rounded-full blur-[100px]"
-            style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)' }}
-            style={{ animation: 'bgBreath 1.4s ease-in-out infinite' }}
+            style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', animation: 'bgBreath 1.4s ease-in-out infinite' }}
           />
 
           {/* Ripple rings */}
@@ -619,8 +617,7 @@ useEffect(() => {
             <div
               key={i}
               className="absolute top-1/2 left-1/2 w-32 h-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
-              style={{ borderColor: 'rgba(0,229,168,0.4)' }}
-              style={{ animation: `rippleOut 1.6s ease-out ${i * 0.45}s infinite` }}
+              style={{ borderColor: 'rgba(0,229,168,0.4)', animation: `rippleOut 1.6s ease-out ${i * 0.45}s infinite` }}
             />
           ))}
 
@@ -654,8 +651,7 @@ useEffect(() => {
             {/* Call to action */}
             <div
               className="mt-2 px-8 py-3 rounded-2xl"
-              style={{ background: 'rgba(0,229,168,0.1)', border: '1px solid rgba(0,229,168,0.25)' }}
-              style={{ animation: 'textSlideUp 0.55s ease-out 0.85s both' }}
+              style={{ background: 'rgba(0,229,168,0.1)', border: '1px solid rgba(0,229,168,0.25)', animation: 'textSlideUp 0.55s ease-out 0.85s both' }}
             >
               <p className="font-black uppercase tracking-widest text-sm" style={{ color: '#00E5A8' }}>
                 ¡Listo para entrenar!
