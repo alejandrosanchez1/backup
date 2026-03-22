@@ -1,9 +1,15 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import {
   User, ChevronRight, X, Save, Trash2, ChevronDown,
   Shield, Users, Plus, UserPlus, Dumbbell, Edit2, Check
 } from 'lucide-react'
+
+const adminSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!
+)
 
 type Profile = {
   id: string; full_name: string; weight: string; height: string
@@ -116,13 +122,19 @@ export default function AdminView({ supabase }: { supabase: any }) {
       return toast('Completa todos los campos', true)
     setCreating(true)
     try {
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser)
+      const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+        email: newUser.email,
+        password: newUser.password,
+        email_confirm: true,
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
+      if (authError) throw new Error(authError.message)
+      const { error: profileError } = await adminSupabase.from('profiles').upsert({
+        id: authData.user.id,
+        full_name: newUser.full_name,
+        role: newUser.role || 'user',
+        email: newUser.email,
+      })
+      if (profileError) throw new Error(profileError.message)
       toast('Usuario creado correctamente')
       setShowCreate(false)
       setNewUser({ full_name: '', email: '', password: '', role: 'user' })
@@ -169,12 +181,8 @@ export default function AdminView({ supabase }: { supabase: any }) {
 
   const createRoutine = async () => {
     if (!newRoutineName.trim() || !selectedUser) return
-    const res = await fetch('/api/admin/routines', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: selectedUser.id, name: newRoutineName.trim() })
-    })
-    if (!res.ok) return toast('Error al crear rutina', true)
+    const { error } = await supabase.from('routines').insert([{ user_id: selectedUser.id, name: newRoutineName.trim() }])
+    if (error) return toast('Error al crear rutina', true)
     setNewRoutineName('')
     refreshRoutines()
     toast('Rutina creada')
@@ -182,8 +190,9 @@ export default function AdminView({ supabase }: { supabase: any }) {
 
   const deleteRoutine = async (id: string) => {
     if (!confirm('¿Eliminar esta rutina?')) return
-    const res = await fetch(`/api/admin/routines?routineId=${id}`, { method: 'DELETE' })
-    if (!res.ok) return toast('Error al eliminar', true)
+    await supabase.from('routine_exercises').delete().eq('routine_id', id)
+    const { error } = await supabase.from('routines').delete().eq('id', id)
+    if (error) return toast('Error al eliminar', true)
     setRoutines(prev => prev.filter(r => r.id !== id))
     toast('Rutina eliminada')
   }
@@ -191,12 +200,10 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const saveExercise = async (exId: number) => {
     const ex = editingEx[exId]
     if (!ex) return
-    const res = await fetch('/api/admin/routines', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exerciseId: exId, sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time })
-    })
-    if (!res.ok) return toast('Error al guardar', true)
+    const { error } = await supabase.from('routine_exercises')
+      .update({ sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time })
+      .eq('id', exId)
+    if (error) return toast('Error al guardar', true)
     setEditingEx(prev => { const n = {...prev}; delete n[exId]; return n })
     if (expandedRoutine) {
       const exs = await loadExercises(expandedRoutine)
@@ -206,7 +213,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   }
 
   const deleteExercise = async (exId: number, routineId: string) => {
-    await fetch(`/api/admin/routines?exerciseId=${exId}`, { method: 'DELETE' })
+    await supabase.from('routine_exercises').delete().eq('id', exId)
     setRoutines(prev => prev.map(r => r.id === routineId
       ? { ...r, routine_exercises: r.routine_exercises.filter(e => e.id !== exId) }
       : r
