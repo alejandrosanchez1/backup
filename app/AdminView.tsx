@@ -78,13 +78,13 @@ export default function AdminView({ supabase }: { supabase: any }) {
 
   const selectUser = async (user: Profile) => {
     setSelectedUser(user); setEditProfile(user); setActiveTab('profile')
-    const { data: nut } = await supabase.from('nutrition_plans').select('*').eq('user_id', user.id).single()
+    const { data: nut } = await adminSupabase.from('nutrition_plans').select('*').eq('user_id', user.id).single()
     setMeals(nut?.meals || MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })))
     await loadRoutines(user.id)
   }
 
   const loadRoutines = async (userId: string) => {
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('routines')
       .select('id, name, user_id')
       .eq('user_id', userId)
@@ -93,7 +93,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   }
 
   const loadExercises = async (routineId: string) => {
-    const { data: reRows } = await supabase
+    const { data: reRows } = await adminSupabase
       .from('routine_exercises')
       .select('id, sets, reps, rest_time, exercise_id')
       .eq('routine_id', routineId)
@@ -101,7 +101,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
     const ids = reRows.map((r: any) => r.exercise_id).filter(Boolean)
     let nameMap: Record<string, string> = {}
     if (ids.length) {
-      const { data: exData } = await supabase
+      const { data: exData } = await adminSupabase
         .from('custom_exercises')
         .select('id, name')
         .in('id', ids)
@@ -152,7 +152,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const saveProfile = async () => {
     if (!selectedUser) return
     setSaving(true)
-    const { error } = await supabase.from('profiles').update({
+    const { error } = await adminSupabase.from('profiles').update({
       full_name: editProfile.full_name, weight: editProfile.weight, height: editProfile.height,
       age: editProfile.age, gender: editProfile.gender, experience_level: editProfile.experience_level,
       training_days: editProfile.training_days, injuries: editProfile.injuries,
@@ -166,9 +166,9 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const saveNutrition = async () => {
     if (!selectedUser) return
     setSaving(true)
-    const { data: ex } = await supabase.from('nutrition_plans').select('id').eq('user_id', selectedUser.id).single()
-    if (ex) await supabase.from('nutrition_plans').update({ meals }).eq('user_id', selectedUser.id)
-    else await supabase.from('nutrition_plans').insert([{ user_id: selectedUser.id, meals }])
+    const { data: ex } = await adminSupabase.from('nutrition_plans').select('id').eq('user_id', selectedUser.id).single()
+    if (ex) await adminSupabase.from('nutrition_plans').update({ meals }).eq('user_id', selectedUser.id)
+    else await adminSupabase.from('nutrition_plans').insert([{ user_id: selectedUser.id, meals }])
     setSaving(false); toast('Nutrición guardada')
   }
 
@@ -183,7 +183,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
 
   const createRoutine = async () => {
     if (!newRoutineName.trim() || !selectedUser) return
-    const { error } = await supabase.from('routines').insert([{ user_id: selectedUser.id, name: newRoutineName.trim() }])
+    const { error } = await adminSupabase.from('routines').insert([{ user_id: selectedUser.id, name: newRoutineName.trim() }])
     if (error) return toast('Error al crear rutina', true)
     setNewRoutineName('')
     refreshRoutines()
@@ -192,8 +192,8 @@ export default function AdminView({ supabase }: { supabase: any }) {
 
   const deleteRoutine = async (id: string) => {
     if (!confirm('¿Eliminar esta rutina?')) return
-    await supabase.from('routine_exercises').delete().eq('routine_id', id)
-    const { error } = await supabase.from('routines').delete().eq('id', id)
+    await adminSupabase.from('routine_exercises').delete().eq('routine_id', id)
+    const { error } = await adminSupabase.from('routines').delete().eq('id', id)
     if (error) return toast('Error al eliminar', true)
     setRoutines(prev => prev.filter(r => r.id !== id))
     toast('Rutina eliminada')
@@ -202,7 +202,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const saveExercise = async (exId: number) => {
     const ex = editingEx[exId]
     if (!ex) return
-    const { error } = await supabase.from('routine_exercises')
+    const { error } = await adminSupabase.from('routine_exercises')
       .update({ sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time })
       .eq('id', exId)
     if (error) return toast('Error al guardar', true)
@@ -215,7 +215,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   }
 
   const deleteExercise = async (exId: number, routineId: string) => {
-    await supabase.from('routine_exercises').delete().eq('id', exId)
+    await adminSupabase.from('routine_exercises').delete().eq('id', exId)
     setRoutines(prev => prev.map(r => r.id === routineId
       ? { ...r, routine_exercises: r.routine_exercises.filter(e => e.id !== exId) }
       : r
