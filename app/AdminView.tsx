@@ -74,6 +74,9 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const [selectedEx, setSelectedEx]         = useState<any | null>(null)
   const [exConfig, setExConfig]             = useState({ sets: 3, reps: '10', rest_time: 60 })
   const [addingEx, setAddingEx]             = useState(false)
+  const [showCreateEx, setShowCreateEx]     = useState(false)
+  const [newEx, setNewEx]                   = useState({ name: '', target: '' })
+  const [creatingEx, setCreatingEx]         = useState(false)
   const searchRef                           = useRef<HTMLInputElement>(null)
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -117,16 +120,9 @@ export default function AdminView({ supabase }: { supabase: any }) {
     const ids = rows.map((r: any) => r.exercise_id).filter(Boolean)
     const nameMap: Record<string, string> = {}
 
-    // Look up in all_exercises first, then custom_exercises
     if (ids.length) {
-      const { data: allEx } = await db.from('all_exercises').select('id, name').in('id', ids)
-      ;(allEx || []).forEach((e: any) => { nameMap[e.id] = e.name })
-
-      const missing = ids.filter(id => !nameMap[id])
-      if (missing.length) {
-        const { data: customEx } = await db.from('exercises').select('id, name').in('id', missing)
-        ;(customEx || []).forEach((e: any) => { nameMap[e.id] = e.name })
-      }
+      const { data: customEx } = await db.from('custom_exercises').select('id, name').in('id', ids)
+      ;(customEx || []).forEach((e: any) => { nameMap[e.id] = e.name })
     }
 
     return rows.map((re: any) => ({
@@ -180,7 +176,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
     setExSearch(q)
     setSelectedEx(null)
     if (q.trim().length < 2) { setExResults([]); return }
-    const { data } = await db.from('all_exercises').select('id, name, target, body_part').ilike('name', `%${q.trim()}%`).limit(10)
+    const { data } = await db.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(10)
     setExResults(data || [])
   }
 
@@ -188,6 +184,21 @@ export default function AdminView({ supabase }: { supabase: any }) {
     setSelectedEx(ex)
     setExSearch(ex.name)
     setExResults([])
+  }
+
+  const createCustomExercise = async () => {
+    if (!newEx.name.trim()) return toast('Escribe un nombre', true)
+    setCreatingEx(true)
+    const { data, error } = await db.from('custom_exercises')
+      .insert([{ name: newEx.name.trim(), target: newEx.target.trim() || 'General' }])
+      .select().single()
+    if (error) { toast('Error al crear ejercicio', true); setCreatingEx(false); return }
+    toast(`"${data.name}" creado`)
+    setNewEx({ name: '', target: '' })
+    setShowCreateEx(false)
+    // Auto-seleccionar el ejercicio recién creado
+    pickExercise({ id: data.id, name: data.name, target: data.target })
+    setCreatingEx(false)
   }
 
   const addExerciseToRoutine = async () => {
@@ -320,12 +331,54 @@ export default function AdminView({ supabase }: { supabase: any }) {
                     onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.08)')}
                     onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
                     <p className="text-sm font-bold text-white">{ex.name}</p>
-                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target} · {ex.body_part}</p>
+                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target || 'General'}</p>
                   </button>
                 ))}
               </div>
             )}
           </div>
+
+          {/* Botón crear ejercicio / formulario */}
+          {!selectedEx && (
+            <div>
+              {!showCreateEx ? (
+                <button onClick={() => setShowCreateEx(true)}
+                  className="w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95"
+                  style={{ background:'rgba(255,255,255,0.04)', border:'1px dashed rgba(0,229,168,0.3)', color:'#00E5A8' }}>
+                  <Plus size={13} /> Crear ejercicio nuevo
+                </button>
+              ) : (
+                <div className="space-y-2 p-3 rounded-xl" style={{ background:'rgba(0,229,168,0.06)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                  <p className="text-[9px] uppercase font-black tracking-wider" style={{ color:'#00E5A8' }}>Nuevo ejercicio</p>
+                  <input
+                    style={{ ...inp, fontSize:13 } as React.CSSProperties}
+                    placeholder="Nombre del ejercicio *"
+                    value={newEx.name}
+                    onChange={e => setNewEx(p => ({ ...p, name: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && createCustomExercise()}
+                  />
+                  <input
+                    style={{ ...inp, fontSize:13 } as React.CSSProperties}
+                    placeholder="Músculo / grupo (ej: Pecho, Pierna...)"
+                    value={newEx.target}
+                    onChange={e => setNewEx(p => ({ ...p, target: e.target.value }))}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => { setShowCreateEx(false); setNewEx({ name:'', target:'' }) }}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold transition-all active:scale-95"
+                      style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={createCustomExercise} disabled={creatingEx}
+                      className="flex-1 py-2 rounded-xl text-xs font-black text-white flex items-center justify-center gap-1 transition-all active:scale-95"
+                      style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', opacity: creatingEx ? 0.6 : 1 }}>
+                      <Check size={13} /> {creatingEx ? 'Creando...' : 'Crear'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Config: only show when exercise selected */}
           {selectedEx && (
