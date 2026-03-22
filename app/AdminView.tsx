@@ -69,7 +69,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const [newRoutineName, setNewRoutineName] = useState('')
 
   const loadUsers = async () => {
-    const { data } = await supabase.from('profiles').select('*')
+    const { data } = await adminSupabase.from('profiles').select('*')
     setUsers(data || [])
     setLoading(false)
   }
