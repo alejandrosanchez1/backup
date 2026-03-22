@@ -1,6 +1,10 @@
 import { createClient } from '@/lib/supabaseServer';
 import ExerciseList from '@/src/features/exercises/components/ExerciseList';
 
+// Añade esto arriba del todo, justo debajo de los imports
+export const dynamic = 'force-static'; 
+
+
 export default async function ExercisesPage() {
   const supabase = await createClient();
 

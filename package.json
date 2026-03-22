@@ -5,9 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "next build -e next.config.capacitor.mjs",
     "start": "next start",
     "lint": "next lint",
-    "static": "next build && npx cap sync",
+    "static": "npm run build:static && npx cap sync",
     "android": "npm run static && npx cap open android"
   },
   "dependencies": {
