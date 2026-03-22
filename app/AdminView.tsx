@@ -1,18 +1,20 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
-  User, ChevronRight, X, Save, Trash2, ChevronDown,
-  Shield, Users, Plus, UserPlus, Dumbbell, Edit2, Check
+  X, Save, Trash2, Shield, Users, Plus, UserPlus,
+  Dumbbell, ChevronRight, Search, Check, ArrowLeft,
+  Clock, RotateCcw, Hash
 } from 'lucide-react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wrjenrtnojmhianqzxlo.supabase.co'
 const SERVICE_ROLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyamVucnRub2ptaGlhbnF6eGxvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDU4MTYxOCwiZXhwIjoyMDg2MTU3NjE4fQ.GME1KUAeu-Z1ndUpNsQ9OFr0AnW0tcmGGU19eQG9d4U'
 
-const adminSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 })
 
+// ── Types ─────────────────────────────────────────────────────────────────────
 type Profile = {
   id: string; full_name: string; weight: string; height: string
   age: number; gender: string; role: string; experience_level: string
@@ -20,12 +22,13 @@ type Profile = {
   email?: string
 }
 type Meal = { name: string; protein: string[]; carbs: string[]; fat: string[] }
-type RoutineEx = { id: number; name: string; sets: number; reps: string; rest_time: number }
-type Routine = { id: string; name: string; routine_exercises: RoutineEx[] }
+type RoutineEx = { id: number; exercise_id: string; name: string; sets: number; reps: string; rest_time: number; order?: number }
+type Routine   = { id: string; name: string; exercises: RoutineEx[] }
 
-const MEAL_NAMES  = ['Desayuno', 'Media Mañana', 'Almuerzo', 'Media Tarde', 'Cena']
+const MEAL_NAMES    = ['Desayuno', 'Media Mañana', 'Almuerzo', 'Media Tarde', 'Cena']
 const FOCUS_OPTIONS = ['Hipertrofia', 'Fuerza', 'Pérdida de Grasa', 'Resistencia', 'Salud']
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const card: React.CSSProperties = {
   background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)',
   borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.4)'
@@ -47,118 +50,191 @@ const btnPrimary: React.CSSProperties = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminView({ supabase }: { supabase: any }) {
-  const [users, setUsers]         = useState<Profile[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [users, setUsers]               = useState<Profile[]>([])
+  const [loading, setLoading]           = useState(true)
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
-  const [activeTab, setActiveTab] = useState<'profile'|'nutrition'|'routines'|'notas'>('profile')
-  const [meals, setMeals]         = useState<Meal[]>([])
-  const [routines, setRoutines]   = useState<Routine[]>([])
-  const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null)
-  const [editProfile, setEditProfile] = useState<Partial<Profile>>({})
-  const [saving, setSaving]       = useState(false)
-  const [success, setSuccess]     = useState('')
-  const [error, setError]         = useState('')
+  const [activeTab, setActiveTab]       = useState<'profile'|'nutrition'|'routines'|'notas'>('profile')
+  const [meals, setMeals]               = useState<Meal[]>([])
+  const [routines, setRoutines]         = useState<Routine[]>([])
+  const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null)
+  const [editProfile, setEditProfile]   = useState<Partial<Profile>>({})
+  const [saving, setSaving]             = useState(false)
+  const [success, setSuccess]           = useState('')
+  const [error, setError]               = useState('')
 
-  // Create user modal
+  // Create user
   const [showCreate, setShowCreate] = useState(false)
-  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'user' })
-  const [creating, setCreating] = useState(false)
+  const [newUser, setNewUser]       = useState({ full_name: '', email: '', password: '', role: 'user' })
+  const [creating, setCreating]     = useState(false)
 
-  // Routine editing
-  const [editingEx, setEditingEx] = useState<{[key: string]: RoutineEx}>({})
+  // Routine management
   const [newRoutineName, setNewRoutineName] = useState('')
+  const [exSearch, setExSearch]             = useState('')
+  const [exResults, setExResults]           = useState<any[]>([])
+  const [selectedEx, setSelectedEx]         = useState<any | null>(null)
+  const [exConfig, setExConfig]             = useState({ sets: 3, reps: '10', rest_time: 60 })
+  const [addingEx, setAddingEx]             = useState(false)
+  const searchRef                           = useRef<HTMLInputElement>(null)
 
-  // Add exercise to routine
-  const [exSearch, setExSearch] = useState<{[routineId: string]: string}>({})
-  const [exResults, setExResults] = useState<{[routineId: string]: any[]}>({})
-  const [newExConfig, setNewExConfig] = useState<{[routineId: string]: {sets: number, reps: string, rest_time: number, selectedEx: any|null}}>({})
-  const [addingEx, setAddingEx] = useState<{[routineId: string]: boolean}>({})
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const toast = (msg: string, isError = false) => {
+    if (isError) { setError(msg); setTimeout(() => setError(''), 3000) }
+    else         { setSuccess(msg); setTimeout(() => setSuccess(''), 2500) }
+  }
 
+  // ── Users ────────────────────────────────────────────────────────────────
   const loadUsers = async () => {
-    const { data } = await adminSupabase.from('profiles').select('*')
+    const { data } = await db.from('profiles').select('*')
     setUsers(data || [])
     setLoading(false)
   }
-
   useEffect(() => { loadUsers() }, [])
 
   const selectUser = async (user: Profile) => {
-    setSelectedUser(user); setEditProfile(user); setActiveTab('profile')
-    const { data: nut } = await adminSupabase.from('nutrition_plans').select('*').eq('user_id', user.id).single()
+    setSelectedUser(user)
+    setEditProfile(user)
+    setActiveTab('profile')
+    setSelectedRoutine(null)
+    const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', user.id).single()
     setMeals(nut?.meals || MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })))
     await loadRoutines(user.id)
   }
 
+  // ── Routines ─────────────────────────────────────────────────────────────
   const loadRoutines = async (userId: string) => {
-    const { data, error } = await adminSupabase
-      .from('routines')
-      .select('id, name, user_id')
-      .eq('user_id', userId)
-    if (error) { toast('Error cargando rutinas', true); return }
-    setRoutines((data || []).map((r: any) => ({ ...r, routine_exercises: [] })))
+    const { data } = await db.from('routines').select('id, name').eq('user_id', userId).order('name')
+    setRoutines((data || []).map((r: any) => ({ ...r, exercises: [] })))
   }
 
-  const loadExercises = async (routineId: string) => {
-    const { data: reRows } = await adminSupabase
+  const loadRoutineExercises = async (routineId: string): Promise<RoutineEx[]> => {
+    const { data: rows } = await db
       .from('routine_exercises')
-      .select('id, sets, reps, rest_time, exercise_id')
+      .select('id, sets, reps, rest_time, exercise_id, order')
       .eq('routine_id', routineId)
-    if (!reRows?.length) return []
-    const ids = reRows.map((r: any) => r.exercise_id).filter(Boolean)
-    let nameMap: Record<string, string> = {}
+      .order('order', { ascending: true })
+    if (!rows?.length) return []
+
+    const ids = rows.map((r: any) => r.exercise_id).filter(Boolean)
+    const nameMap: Record<string, string> = {}
+
+    // Look up in all_exercises first, then custom_exercises
     if (ids.length) {
-      const { data: exData } = await adminSupabase
-        .from('custom_exercises')
-        .select('id, name')
-        .in('id', ids)
-      ;(exData || []).forEach((e: any) => { nameMap[e.id] = e.name })
+      const { data: allEx } = await db.from('all_exercises').select('id, name').in('id', ids)
+      ;(allEx || []).forEach((e: any) => { nameMap[e.id] = e.name })
+
+      const missing = ids.filter(id => !nameMap[id])
+      if (missing.length) {
+        const { data: customEx } = await db.from('exercises').select('id, name').in('id', missing)
+        ;(customEx || []).forEach((e: any) => { nameMap[e.id] = e.name })
+      }
     }
-    return reRows.map((re: any) => ({
-      id: re.id, sets: re.sets, reps: re.reps, rest_time: re.rest_time,
+
+    return rows.map((re: any) => ({
+      id: re.id,
+      exercise_id: re.exercise_id,
       name: nameMap[re.exercise_id] || 'Ejercicio',
+      sets: re.sets || 3,
+      reps: re.reps || '10',
+      rest_time: re.rest_time || 60,
+      order: re.order,
     }))
   }
 
-  const toast = (msg: string, isError = false) => {
-    if (isError) { setError(msg); setTimeout(() => setError(''), 3000) }
-    else { setSuccess(msg); setTimeout(() => setSuccess(''), 2500) }
+  const openRoutine = async (routine: Routine) => {
+    const exercises = await loadRoutineExercises(routine.id)
+    const full = { ...routine, exercises }
+    setSelectedRoutine(full)
+    setRoutines(prev => prev.map(r => r.id === routine.id ? full : r))
+    setExSearch(''); setExResults([]); setSelectedEx(null)
+    setExConfig({ sets: 3, reps: '10', rest_time: 60 })
   }
 
-  // ── Create user ────────────────────────────────────────────────────────────
-  const handleCreateUser = async () => {
-    if (!newUser.email || !newUser.password || !newUser.full_name)
-      return toast('Completa todos los campos', true)
-    setCreating(true)
-    try {
-      const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
-        email: newUser.email,
-        password: newUser.password,
-        email_confirm: true,
-      })
-      if (authError) throw new Error(authError.message)
-      const { error: profileError } = await adminSupabase.from('profiles').upsert({
-        id: authData.user.id,
-        full_name: newUser.full_name,
-        role: newUser.role || 'user',
-        email: newUser.email,
-      })
-      if (profileError) throw new Error(profileError.message)
-      toast('Usuario creado correctamente')
-      setShowCreate(false)
-      setNewUser({ full_name: '', email: '', password: '', role: 'user' })
-      loadUsers()
-    } catch (e: any) {
-      toast(e.message || 'Error al crear usuario', true)
-    } finally {
-      setCreating(false)
+  const refreshSelectedRoutine = async () => {
+    if (!selectedRoutine) return
+    const exercises = await loadRoutineExercises(selectedRoutine.id)
+    setSelectedRoutine(prev => prev ? { ...prev, exercises } : null)
+  }
+
+  const createRoutine = async () => {
+    if (!newRoutineName.trim() || !selectedUser) return
+    const { data, error } = await db.from('routines').insert([{ user_id: selectedUser.id, name: newRoutineName.trim() }]).select().single()
+    if (error) return toast('Error al crear rutina', true)
+    setNewRoutineName('')
+    const newR: Routine = { id: data.id, name: data.name, exercises: [] }
+    setRoutines(prev => [...prev, newR])
+    toast('Rutina creada')
+    openRoutine(newR)
+  }
+
+  const deleteRoutine = async (id: string) => {
+    if (!confirm('¿Eliminar esta rutina y todos sus ejercicios?')) return
+    await db.from('routine_exercises').delete().eq('routine_id', id)
+    await db.from('routines').delete().eq('id', id)
+    setRoutines(prev => prev.filter(r => r.id !== id))
+    if (selectedRoutine?.id === id) setSelectedRoutine(null)
+    toast('Rutina eliminada')
+  }
+
+  // ── Exercise search ───────────────────────────────────────────────────────
+  const searchExercises = async (q: string) => {
+    setExSearch(q)
+    setSelectedEx(null)
+    if (q.trim().length < 2) { setExResults([]); return }
+    const { data } = await db.from('all_exercises').select('id, name, target, body_part').ilike('name', `%${q.trim()}%`).limit(10)
+    setExResults(data || [])
+  }
+
+  const pickExercise = (ex: any) => {
+    setSelectedEx(ex)
+    setExSearch(ex.name)
+    setExResults([])
+  }
+
+  const addExerciseToRoutine = async () => {
+    if (!selectedRoutine || !selectedEx) return
+    setAddingEx(true)
+    const maxOrder = selectedRoutine.exercises.reduce((m, e) => Math.max(m, e.order ?? 0), 0)
+    const { error } = await db.from('routine_exercises').insert([{
+      routine_id: selectedRoutine.id,
+      exercise_id: selectedEx.id,
+      sets: exConfig.sets,
+      reps: String(exConfig.reps),
+      rest_time: exConfig.rest_time,
+      order: maxOrder + 1,
+    }])
+    if (error) toast('Error al añadir ejercicio', true)
+    else {
+      toast(`${selectedEx.name} añadido`)
+      setExSearch(''); setSelectedEx(null); setExResults([])
+      setExConfig({ sets: 3, reps: '10', rest_time: 60 })
+      await refreshSelectedRoutine()
     }
+    setAddingEx(false)
   }
 
-  // ── Profile ────────────────────────────────────────────────────────────────
+  // ── Exercise edit (inline, saved on blur) ────────────────────────────────
+  const updateLocalEx = (exId: number, field: string, value: any) => {
+    setSelectedRoutine(prev => {
+      if (!prev) return prev
+      return { ...prev, exercises: prev.exercises.map(e => e.id === exId ? { ...e, [field]: value } : e) }
+    })
+  }
+
+  const saveExercise = async (ex: RoutineEx) => {
+    await db.from('routine_exercises').update({ sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time }).eq('id', ex.id)
+  }
+
+  const deleteExercise = async (exId: number) => {
+    await db.from('routine_exercises').delete().eq('id', exId)
+    setSelectedRoutine(prev => prev ? { ...prev, exercises: prev.exercises.filter(e => e.id !== exId) } : null)
+    toast('Ejercicio eliminado')
+  }
+
+  // ── Profile ───────────────────────────────────────────────────────────────
   const saveProfile = async () => {
     if (!selectedUser) return
     setSaving(true)
-    const { error } = await adminSupabase.from('profiles').update({
+    const { error } = await db.from('profiles').update({
       full_name: editProfile.full_name, weight: editProfile.weight, height: editProfile.height,
       age: editProfile.age, gender: editProfile.gender, experience_level: editProfile.experience_level,
       training_days: editProfile.training_days, injuries: editProfile.injuries,
@@ -168,117 +244,198 @@ export default function AdminView({ supabase }: { supabase: any }) {
     error ? toast(error.message, true) : toast('Perfil guardado')
   }
 
-  // ── Nutrition ──────────────────────────────────────────────────────────────
+  // ── Nutrition ─────────────────────────────────────────────────────────────
   const saveNutrition = async () => {
     if (!selectedUser) return
     setSaving(true)
-    const { data: ex } = await adminSupabase.from('nutrition_plans').select('id').eq('user_id', selectedUser.id).single()
-    if (ex) await adminSupabase.from('nutrition_plans').update({ meals }).eq('user_id', selectedUser.id)
-    else await adminSupabase.from('nutrition_plans').insert([{ user_id: selectedUser.id, meals }])
+    const { data: ex } = await db.from('nutrition_plans').select('id').eq('user_id', selectedUser.id).single()
+    if (ex) await db.from('nutrition_plans').update({ meals }).eq('user_id', selectedUser.id)
+    else    await db.from('nutrition_plans').insert([{ user_id: selectedUser.id, meals }])
     setSaving(false); toast('Nutrición guardada')
   }
-
   const updateMeal = (i: number, type: 'protein'|'carbs'|'fat', val: string) =>
     setMeals(prev => prev.map((m, j) => j === i ? { ...m, [type]: val.split('\n').filter(Boolean) } : m))
 
-  // ── Routines ───────────────────────────────────────────────────────────────
-  const refreshRoutines = async () => {
-    if (!selectedUser) return
-    await loadRoutines(selectedUser.id)
-  }
-
-  const createRoutine = async () => {
-    if (!newRoutineName.trim() || !selectedUser) return
-    const { error } = await adminSupabase.from('routines').insert([{ user_id: selectedUser.id, name: newRoutineName.trim() }])
-    if (error) return toast('Error al crear rutina', true)
-    setNewRoutineName('')
-    refreshRoutines()
-    toast('Rutina creada')
-  }
-
-  const deleteRoutine = async (id: string) => {
-    if (!confirm('¿Eliminar esta rutina?')) return
-    await adminSupabase.from('routine_exercises').delete().eq('routine_id', id)
-    const { error } = await adminSupabase.from('routines').delete().eq('id', id)
-    if (error) return toast('Error al eliminar', true)
-    setRoutines(prev => prev.filter(r => r.id !== id))
-    toast('Rutina eliminada')
-  }
-
-  const saveExercise = async (exId: number) => {
-    const ex = editingEx[exId]
-    if (!ex) return
-    const { error } = await adminSupabase.from('routine_exercises')
-      .update({ sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time })
-      .eq('id', exId)
-    if (error) return toast('Error al guardar', true)
-    setEditingEx(prev => { const n = {...prev}; delete n[exId]; return n })
-    if (expandedRoutine) {
-      const exs = await loadExercises(expandedRoutine)
-      setRoutines(prev => prev.map(r => r.id === expandedRoutine ? { ...r, routine_exercises: exs } : r))
-    }
-    toast('Ejercicio actualizado')
-  }
-
-  const deleteExercise = async (exId: number, routineId: string) => {
-    await adminSupabase.from('routine_exercises').delete().eq('id', exId)
-    setRoutines(prev => prev.map(r => r.id === routineId
-      ? { ...r, routine_exercises: r.routine_exercises.filter(e => e.id !== exId) }
-      : r
-    ))
-  }
-
-  // ── Add exercise to routine ────────────────────────────────────────────────
-  const searchExercises = async (routineId: string, query: string) => {
-    setExSearch(p => ({ ...p, [routineId]: query }))
-    if (query.trim().length < 2) { setExResults(p => ({ ...p, [routineId]: [] })); return }
-    const { data } = await adminSupabase
-      .from('all_exercises')
-      .select('id, name, target, body_part')
-      .ilike('name', `%${query.trim()}%`)
-      .limit(8)
-    setExResults(p => ({ ...p, [routineId]: data || [] }))
-  }
-
-  const selectExerciseForRoutine = (routineId: string, ex: any) => {
-    setNewExConfig(p => ({ ...p, [routineId]: { sets: 3, reps: '10', rest_time: 60, selectedEx: ex } }))
-    setExSearch(p => ({ ...p, [routineId]: ex.name }))
-    setExResults(p => ({ ...p, [routineId]: [] }))
-  }
-
-  const addExerciseToRoutine = async (routineId: string) => {
-    const cfg = newExConfig[routineId]
-    if (!cfg?.selectedEx) return
-    setAddingEx(p => ({ ...p, [routineId]: true }))
-    const { error } = await adminSupabase.from('routine_exercises').insert([{
-      routine_id: routineId,
-      exercise_id: cfg.selectedEx.id,
-      sets: cfg.sets,
-      reps: String(cfg.reps),
-      rest_time: cfg.rest_time,
-    }])
-    if (error) { toast('Error al añadir ejercicio', true) }
-    else {
-      toast('Ejercicio añadido')
-      setExSearch(p => ({ ...p, [routineId]: '' }))
-      setNewExConfig(p => ({ ...p, [routineId]: { sets: 3, reps: '10', rest_time: 60, selectedEx: null } }))
-      const exs = await loadExercises(routineId)
-      setRoutines(prev => prev.map(r => r.id === routineId ? { ...r, routine_exercises: exs } : r))
-    }
-    setAddingEx(p => ({ ...p, [routineId]: false }))
-  }
-
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center h-40">
-      <p className="text-sm font-bold uppercase tracking-widest animate-pulse" style={{ color: '#6B7895' }}>
-        Cargando usuarios...
-      </p>
+      <p className="text-sm font-bold uppercase tracking-widest animate-pulse" style={{ color: '#6B7895' }}>Cargando...</p>
     </div>
   )
 
   // ══════════════════════════════════════════════════════════════════════════
-  // DETAIL VIEW
+  // ROUTINE DETAIL VIEW
+  // ══════════════════════════════════════════════════════════════════════════
+  if (selectedUser && activeTab === 'routines' && selectedRoutine) {
+    return (
+      <div className="space-y-4 pb-28">
+        <style>{`@keyframes fadeUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSelectedRoutine(null)}
+            className="w-10 h-10 flex items-center justify-center rounded-2xl transition-all active:scale-95"
+            style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+            <ArrowLeft size={18} style={{ color:'#A8B3CF' }} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] uppercase font-bold tracking-widest" style={{ color:'#6B7895' }}>{selectedUser.full_name}</p>
+            <h2 className="text-lg font-black text-white break-words">{selectedRoutine.name}</h2>
+          </div>
+          <button onClick={() => deleteRoutine(selectedRoutine.id)}
+            className="w-10 h-10 flex items-center justify-center rounded-2xl transition-all active:scale-95 shrink-0"
+            style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)' }}>
+            <Trash2 size={16} style={{ color:'#ef4444' }} />
+          </button>
+        </div>
+
+        {/* Toasts */}
+        {success && <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.25)', color:'#00E5A8' }}>✓ {success}</div>}
+        {error   && <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)', color:'#ef4444' }}>✕ {error}</div>}
+
+        {/* ── AÑADIR EJERCICIO ── */}
+        <div className="p-4 space-y-3 rounded-[20px]" style={{ background:'rgba(0,229,168,0.04)', border:'1px solid rgba(0,229,168,0.2)' }}>
+          <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
+
+          {/* Search */}
+          <div className="relative">
+            <div className="flex items-center gap-2 px-3" style={{ ...inp, display:'flex', padding:'0 12px' }}>
+              <Search size={14} style={{ color:'#6B7895', flexShrink:0 }} />
+              <input
+                ref={searchRef}
+                className="flex-1 bg-transparent outline-none py-3 text-sm text-white placeholder:text-slate-600"
+                placeholder="Buscar ejercicio por nombre..."
+                value={exSearch}
+                onChange={e => searchExercises(e.target.value)}
+              />
+              {exSearch && <button onClick={() => { setExSearch(''); setExResults([]); setSelectedEx(null) }}><X size={14} style={{ color:'#6B7895' }} /></button>}
+            </div>
+            {exResults.length > 0 && (
+              <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-2xl overflow-hidden"
+                style={{ background:'#0f1a2e', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 12px 40px rgba(0,0,0,0.7)', maxHeight:260, overflowY:'auto' }}>
+                {exResults.map((ex: any) => (
+                  <button key={ex.id} onClick={() => pickExercise(ex)}
+                    className="w-full text-left px-4 py-3 transition-all"
+                    style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.08)')}
+                    onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
+                    <p className="text-sm font-bold text-white">{ex.name}</p>
+                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target} · {ex.body_part}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Config: only show when exercise selected */}
+          {selectedEx && (
+            <div className="space-y-3 animate-in fade-in" style={{ animation:'fadeUp 0.2s ease-out both' }}>
+              {/* Selected exercise badge */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                <Dumbbell size={13} style={{ color:'#00E5A8', flexShrink:0 }} />
+                <p className="text-sm font-bold text-white flex-1 break-words">{selectedEx.name}</p>
+                <button onClick={() => { setSelectedEx(null); setExSearch('') }}><X size={13} style={{ color:'#6B7895' }} /></button>
+              </div>
+
+              {/* Sets / Reps / Rest */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label:'Series',   icon:<Hash size={11}/>,  field:'sets',     type:'number', unit:'' },
+                  { label:'Reps',     icon:<RotateCcw size={11}/>, field:'reps', type:'text',   unit:'' },
+                  { label:'Desc.(s)', icon:<Clock size={11}/>, field:'rest_time', type:'number', unit:'s' },
+                ].map(({ label, icon, field, type }) => (
+                  <div key={field}>
+                    <label style={{ ...lbl, marginBottom:4, display:'flex', alignItems:'center', gap:4 }}>{icon}{label}</label>
+                    <input
+                      type={type} inputMode={type === 'number' ? 'numeric' : 'text'}
+                      className="text-center font-black text-base"
+                      style={{ ...inp, padding:'10px 4px', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.35)' } as React.CSSProperties}
+                      value={(exConfig as any)[field]}
+                      onChange={e => setExConfig(p => ({ ...p, [field]: type === 'number' ? Number(e.target.value) : e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={addExerciseToRoutine} disabled={addingEx}
+                className="w-full py-3 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95"
+                style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', opacity: addingEx ? 0.6 : 1, boxShadow:'0 6px 20px rgba(0,229,168,0.35)' }}>
+                <Plus size={16} /> {addingEx ? 'Añadiendo...' : 'Añadir a la rutina'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── LISTA DE EJERCICIOS ── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#6B7895' }}>
+              Ejercicios · {selectedRoutine.exercises.length}
+            </p>
+          </div>
+
+          {selectedRoutine.exercises.length === 0 && (
+            <div className="text-center py-12 rounded-[20px]" style={card}>
+              <Dumbbell size={36} className="mx-auto mb-3 opacity-20" style={{ color:'#6B7895' }} />
+              <p className="text-sm font-bold uppercase" style={{ color:'#6B7895' }}>Sin ejercicios</p>
+              <p className="text-xs mt-1" style={{ color:'#6B7895' }}>Busca y añade ejercicios arriba</p>
+            </div>
+          )}
+
+          {selectedRoutine.exercises.map((ex, idx) => (
+            <div key={ex.id} className="rounded-[20px] overflow-hidden"
+              style={{ ...card, animation:`fadeUp 0.3s ease-out ${idx * 0.04}s both` } as React.CSSProperties}>
+
+              {/* Exercise header */}
+              <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-sm"
+                    style={{ background:'rgba(0,229,168,0.12)', color:'#00E5A8' }}>
+                    {idx + 1}
+                  </div>
+                  <p className="font-black text-sm text-white break-words">{ex.name}</p>
+                </div>
+                <button onClick={() => deleteExercise(ex.id)}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-95 ml-2"
+                  style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}>
+                  <Trash2 size={13} style={{ color:'#ef4444' }} />
+                </button>
+              </div>
+
+              {/* Inline editable fields */}
+              <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+                {[
+                  { label:'Series',   icon:<Hash size={10}/>,       field:'sets',      type:'number' },
+                  { label:'Reps',     icon:<RotateCcw size={10}/>,  field:'reps',      type:'text'   },
+                  { label:'Desc.(s)', icon:<Clock size={10}/>,      field:'rest_time', type:'number' },
+                ].map(({ label, icon, field, type }) => (
+                  <div key={field}>
+                    <label style={{ ...lbl, marginBottom:4, display:'flex', alignItems:'center', gap:3 }}>{icon}{label}</label>
+                    <input
+                      type={type} inputMode={type === 'number' ? 'numeric' : 'text'}
+                      className="text-center font-black text-base"
+                      style={{ ...inp, padding:'10px 4px', color:'#fff', border:'1px solid rgba(255,255,255,0.1)' } as React.CSSProperties}
+                      value={(ex as any)[field] ?? ''}
+                      onChange={e => updateLocalEx(ex.id, field, type === 'number' ? Number(e.target.value) : e.target.value)}
+                      onBlur={() => saveExercise(ex)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Save hint */}
+              <p className="text-center text-[9px] pb-2" style={{ color:'rgba(107,120,149,0.6)' }}>
+                Se guarda automáticamente al salir del campo
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // USER DETAIL VIEW
   // ══════════════════════════════════════════════════════════════════════════
   if (selectedUser) {
     const TABS = [
@@ -290,19 +447,17 @@ export default function AdminView({ supabase }: { supabase: any }) {
 
     return (
       <div className="space-y-5 pb-28">
-        <style>{`@keyframes homeCardIn{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+        <style>{`@keyframes fadeUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSelectedUser(null)}
+          <button onClick={() => setSelectedUser(null)}
             className="w-10 h-10 flex items-center justify-center rounded-2xl transition-all active:scale-95"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            <X size={18} style={{ color: '#A8B3CF' }} />
+            style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+            <ArrowLeft size={18} style={{ color:'#A8B3CF' }} />
           </button>
           <div className="min-w-0">
-            <h1 className="text-xl font-black uppercase text-white truncate">{selectedUser.full_name}</h1>
+            <h1 className="text-xl font-black uppercase text-white break-words">{selectedUser.full_name}</h1>
             <p className="text-[10px] uppercase font-bold" style={{ color: selectedUser.role === 'admin' ? '#00E5A8' : '#6B7895' }}>
               {selectedUser.role} · {selectedUser.email || ''}
             </p>
@@ -310,16 +465,8 @@ export default function AdminView({ supabase }: { supabase: any }) {
         </div>
 
         {/* Toasts */}
-        {success && (
-          <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background: 'rgba(0,229,168,0.1)', border: '1px solid rgba(0,229,168,0.25)', color: '#00E5A8' }}>
-            ✓ {success}
-          </div>
-        )}
-        {error && (
-          <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444' }}>
-            ✕ {error}
-          </div>
-        )}
+        {success && <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.25)', color:'#00E5A8' }}>✓ {success}</div>}
+        {error   && <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)', color:'#ef4444' }}>✕ {error}</div>}
 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -327,10 +474,9 @@ export default function AdminView({ supabase }: { supabase: any }) {
             <button key={key} onClick={() => setActiveTab(key)}
               className="flex-shrink-0 px-4 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
               style={activeTab === key
-                ? { background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', color: '#fff', boxShadow: '0 4px 16px rgba(0,229,168,0.35)' }
-                : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7895' }
-              }
-            >{label}</button>
+                ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff', boxShadow:'0 4px 16px rgba(0,229,168,0.35)' }
+                : { background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.07)', color:'#6B7895' }
+              }>{label}</button>
           ))}
         </div>
 
@@ -387,8 +533,9 @@ export default function AdminView({ supabase }: { supabase: any }) {
                         onClick={() => { const cur = editProfile.focus_areas||[]; setEditProfile(p => ({...p, focus_areas: cur.includes(opt)?cur.filter(f=>f!==opt):[...cur,opt]})) }}
                         className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95"
                         style={on ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }
-                                  : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}
-                      >{opt}</button>
+                                  : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                        {opt}
+                      </button>
                     )
                   })}
                 </div>
@@ -428,213 +575,57 @@ export default function AdminView({ supabase }: { supabase: any }) {
         {/* ── TAB: ROUTINES ── */}
         {activeTab === 'routines' && (
           <div className="space-y-4">
-
-            {/* Nueva rutina */}
-            <div className="flex gap-2" style={card as React.CSSProperties}>
-              <div className="flex gap-2 p-4 w-full">
+            {/* Crear nueva rutina */}
+            <div className="p-4 rounded-[20px]" style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)' }}>
+              <p className="text-[10px] uppercase font-black tracking-widest mb-3" style={{ color:'#6B7895' }}>Nueva rutina</p>
+              <div className="flex gap-2">
                 <input
-                  style={{ ...inp, flex: 1 } as React.CSSProperties}
-                  placeholder="Nombre de nueva rutina..."
+                  style={{ ...inp, flex:1 } as React.CSSProperties}
+                  placeholder="Ej: Día 1 — Pecho y Espalda"
                   value={newRoutineName}
                   onChange={e => setNewRoutineName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && createRoutine()}
                 />
-                <button
-                  onClick={createRoutine}
-                  className="px-4 rounded-xl font-black uppercase text-xs text-white transition-all active:scale-95 shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 16px rgba(0,229,168,0.3)' }}
-                >
+                <button onClick={createRoutine}
+                  className="px-4 rounded-xl font-black text-white transition-all active:scale-95 shrink-0 flex items-center gap-1"
+                  style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow:'0 4px 16px rgba(0,229,168,0.3)' }}>
                   <Plus size={18} />
                 </button>
               </div>
             </div>
 
-            {/* Lista rutinas */}
-            {routines.length === 0 && (
-              <div className="text-center py-12" style={card}>
-                <Dumbbell size={32} className="mx-auto mb-3 opacity-30" style={{ color: '#6B7895' }} />
-                <p className="text-sm font-bold uppercase" style={{ color: '#6B7895' }}>Sin rutinas asignadas</p>
+            {/* Lista de rutinas */}
+            {routines.length === 0 ? (
+              <div className="text-center py-12 rounded-[20px]" style={card}>
+                <Dumbbell size={36} className="mx-auto mb-3 opacity-20" style={{ color:'#6B7895' }} />
+                <p className="text-sm font-bold uppercase" style={{ color:'#6B7895' }}>Sin rutinas asignadas</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase font-black tracking-widest px-1" style={{ color:'#6B7895' }}>
+                  Rutinas · {routines.length}
+                </p>
+                {routines.map((routine, idx) => (
+                  <button key={routine.id} onClick={() => openRoutine(routine)}
+                    className="w-full flex items-center justify-between gap-3 p-4 rounded-[20px] text-left transition-all active:scale-[0.98]"
+                    style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.06)', animation:`fadeUp 0.3s ease-out ${idx*0.05}s both` } as React.CSSProperties}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                        <Dumbbell size={16} style={{ color:'#00E5A8' }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-black text-sm text-white break-words">{routine.name}</p>
+                        <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>
+                          {routine.exercises?.length || 0} ejercicios · Toca para gestionar
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} style={{ color:'#6B7895', flexShrink:0 }} />
+                  </button>
+                ))}
               </div>
             )}
-
-            {routines.map(routine => (
-              <div key={routine.id} style={{ ...card, overflow: 'hidden' }}>
-
-                {/* Routine header */}
-                <div className="px-5 py-4 flex items-center justify-between">
-                  <button
-                    onClick={async () => {
-                      const isOpen = expandedRoutine === routine.id
-                      setExpandedRoutine(isOpen ? null : routine.id)
-                      if (!isOpen) {
-                        const exs = await loadExercises(routine.id)
-                        setRoutines(prev => prev.map(r => r.id === routine.id ? { ...r, routine_exercises: exs } : r))
-                      }
-                    }}
-                    className="flex items-center gap-3 flex-1 text-left"
-                  >
-                    <ChevronDown size={16} style={{ color:'#6B7895', transition:'transform 0.2s', transform: expandedRoutine===routine.id?'rotate(180deg)':'rotate(0deg)' }} />
-                    <div>
-                      <p className="font-black text-sm text-white">{routine.name}</p>
-                      <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>
-                        {routine.routine_exercises?.length || 0} ejercicios
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => deleteRoutine(routine.id)}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95"
-                    style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)' }}
-                  >
-                    <Trash2 size={15} style={{ color:'#ef4444' }} />
-                  </button>
-                </div>
-
-                {/* Exercises */}
-                {expandedRoutine === routine.id && (
-                  <div className="px-4 pb-4 space-y-2" style={{ borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-                    <div className="pt-3" />
-
-                    {/* ── Buscador de ejercicios ── */}
-                    <div className="rounded-2xl overflow-visible space-y-2 pb-2" style={{ background:'rgba(0,229,168,0.04)', border:'1px solid rgba(0,229,168,0.15)', padding:'12px' }}>
-                      <p className="text-[9px] uppercase font-black tracking-wider" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
-                      <div className="relative">
-                        <input
-                          style={{ ...inp, fontSize: 13 } as React.CSSProperties}
-                          placeholder="Buscar ejercicio..."
-                          value={exSearch[routine.id] || ''}
-                          onChange={e => searchExercises(routine.id, e.target.value)}
-                        />
-                        {(exResults[routine.id] || []).length > 0 && (
-                          <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-2xl overflow-hidden" style={{ background:'#0f1a2e', border:'1px solid rgba(0,229,168,0.2)', boxShadow:'0 8px 30px rgba(0,0,0,0.6)' }}>
-                            {exResults[routine.id].map((ex: any) => (
-                              <button key={ex.id} onClick={() => selectExerciseForRoutine(routine.id, ex)}
-                                className="w-full text-left px-4 py-3 transition-all"
-                                style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
-                                onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.08)')}
-                                onMouseLeave={e => (e.currentTarget.style.background='transparent')}
-                              >
-                                <p className="text-sm font-bold text-white">{ex.name}</p>
-                                <p className="text-[10px] uppercase font-bold" style={{ color:'#6B7895' }}>{ex.target} · {ex.body_part}</p>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {newExConfig[routine.id]?.selectedEx && (
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-3 gap-2">
-                            {[
-                              { label:'Series', field:'sets', type:'number' },
-                              { label:'Reps',   field:'reps', type:'text'   },
-                              { label:'Desc(s)', field:'rest_time', type:'number' },
-                            ].map(({ label, field, type }) => (
-                              <div key={field}>
-                                <label style={{ ...lbl, marginBottom: 3 }}>{label}</label>
-                                <input
-                                  type={type}
-                                  className="text-center font-bold text-sm"
-                                  style={{ ...inp, padding:'8px 4px', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.3)' } as React.CSSProperties}
-                                  value={(newExConfig[routine.id] as any)[field] ?? ''}
-                                  onChange={e => setNewExConfig(p => ({ ...p, [routine.id]: { ...p[routine.id], [field]: type === 'number' ? Number(e.target.value) : e.target.value } }))}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                          <button
-                            onClick={() => addExerciseToRoutine(routine.id)}
-                            disabled={addingEx[routine.id]}
-                            className="w-full py-2.5 rounded-xl font-black uppercase text-xs text-white flex items-center justify-center gap-2 transition-all active:scale-95"
-                            style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', opacity: addingEx[routine.id] ? 0.6 : 1 }}
-                          >
-                            <Plus size={14} /> {addingEx[routine.id] ? 'Añadiendo...' : 'Añadir a rutina'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {(!routine.routine_exercises || routine.routine_exercises.length === 0) && (
-                      <p className="text-xs text-center py-4" style={{ color:'#6B7895' }}>Sin ejercicios en esta rutina</p>
-                    )}
-                    {(routine.routine_exercises || []).map((ex) => {
-                      const isEditing = !!editingEx[ex.id]
-                      const draft = editingEx[ex.id] || ex
-                      return (
-                        <div
-                          key={ex.id}
-                          className="rounded-2xl overflow-hidden transition-all"
-                          style={{ background:'rgba(255,255,255,0.03)', border: isEditing ? '1px solid rgba(0,229,168,0.25)' : '1px solid rgba(255,255,255,0.05)' }}
-                        >
-                          {/* Exercise name row */}
-                          <div className="flex items-center justify-between px-4 py-3">
-                            <p className="text-sm font-bold truncate" style={{ color:'#00E5A8' }}>
-                              {ex.name || 'Ejercicio'}
-                            </p>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {isEditing ? (
-                                <button
-                                  onClick={() => saveExercise(ex.id)}
-                                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95"
-                                  style={{ background:'rgba(0,229,168,0.15)', border:'1px solid rgba(0,229,168,0.3)' }}
-                                >
-                                  <Check size={14} style={{ color:'#00E5A8' }} />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => setEditingEx(prev => ({...prev, [ex.id]: {...ex}}))}
-                                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95"
-                                  style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}
-                                >
-                                  <Edit2 size={13} style={{ color:'#6B7895' }} />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => deleteExercise(ex.id, routine.id)}
-                                className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95"
-                                style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}
-                              >
-                                <Trash2 size={13} style={{ color:'#ef4444' }} />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Editable fields */}
-                          <div className="grid grid-cols-3 gap-2 px-4 pb-4">
-                            {[
-                              { label:'Series', field:'sets',      type:'number' },
-                              { label:'Reps',   field:'reps',      type:'text'   },
-                              { label:'Desc (s)',field:'rest_time', type:'number' },
-                            ].map(({ label, field, type }) => (
-                              <div key={field}>
-                                <label style={{ ...lbl, marginBottom: 4 }}>{label}</label>
-                                <input
-                                  type={type}
-                                  disabled={!isEditing}
-                                  value={(draft as any)[field] ?? ''}
-                                  onChange={e => setEditingEx(prev => ({
-                                    ...prev,
-                                    [ex.id]: { ...prev[ex.id], [field]: type === 'number' ? Number(e.target.value) : e.target.value }
-                                  }))}
-                                  className="text-center font-bold text-sm"
-                                  style={{
-                                    ...inp,
-                                    padding: '8px 4px',
-                                    opacity: isEditing ? 1 : 0.6,
-                                    color: isEditing ? '#00E5A8' : '#A8B3CF',
-                                    border: isEditing ? '1px solid rgba(0,229,168,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                                  } as React.CSSProperties}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
         )}
 
@@ -666,7 +657,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="space-y-5 pb-28">
-      <style>{`@keyframes homeCardIn{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+      <style>{`@keyframes fadeUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -680,18 +671,10 @@ export default function AdminView({ supabase }: { supabase: any }) {
       </div>
 
       {/* Toasts */}
-      {success && (
-        <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.25)', color:'#00E5A8' }}>
-          ✓ {success}
-        </div>
-      )}
-      {error && (
-        <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)', color:'#ef4444' }}>
-          ✕ {error}
-        </div>
-      )}
+      {success && <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.25)', color:'#00E5A8' }}>✓ {success}</div>}
+      {error   && <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)', color:'#ef4444' }}>✕ {error}</div>}
 
-      {/* Stats + Crear usuario */}
+      {/* Stats + Crear */}
       <div className="grid grid-cols-2 gap-3">
         <div className="p-4 rounded-[20px] flex items-center gap-3" style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)', boxShadow:'0 10px 30px rgba(0,0,0,0.4)' }}>
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background:'rgba(124,92,255,0.15)' }}>
@@ -702,11 +685,9 @@ export default function AdminView({ supabase }: { supabase: any }) {
             <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>Usuarios</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
+        <button onClick={() => setShowCreate(true)}
           className="p-4 rounded-[20px] flex items-center gap-3 transition-all active:scale-[0.97]"
-          style={{ background:'linear-gradient(135deg,rgba(0,229,168,0.15),rgba(0,194,255,0.1))', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 10px 30px rgba(0,0,0,0.3)' }}
-        >
+          style={{ background:'linear-gradient(135deg,rgba(0,229,168,0.15),rgba(0,194,255,0.1))', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 10px 30px rgba(0,0,0,0.3)' }}>
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background:'rgba(0,229,168,0.15)' }}>
             <UserPlus size={18} style={{ color:'#00E5A8' }} />
           </div>
@@ -720,19 +701,14 @@ export default function AdminView({ supabase }: { supabase: any }) {
       {/* User list */}
       <div className="space-y-3">
         {users.map((user, idx) => (
-          <button
-            key={user.id}
-            onClick={() => selectUser(user)}
+          <button key={user.id} onClick={() => selectUser(user)}
             className="w-full flex items-center justify-between gap-3 p-4 rounded-[20px] text-left transition-all active:scale-[0.98]"
-            style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)', boxShadow:'0 10px 30px rgba(0,0,0,0.3)', animation:`homeCardIn 0.4s ease-out ${idx*0.05}s both` } as React.CSSProperties}
-          >
+            style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)', boxShadow:'0 10px 30px rgba(0,0,0,0.3)', animation:`fadeUp 0.4s ease-out ${idx*0.05}s both` } as React.CSSProperties}>
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-base"
                 style={user.role==='admin'
                   ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }
-                  : { background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }
-                }
-              >
+                  : { background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
                 {(user.full_name||'?').charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -748,14 +724,11 @@ export default function AdminView({ supabase }: { supabase: any }) {
         ))}
       </div>
 
-      {/* ── CREATE USER MODAL ───────────────────────────────────────── */}
+      {/* CREATE USER MODAL */}
       {showCreate && (
         <div className="fixed inset-0 z-[1500] flex items-end justify-center p-4 pb-8" style={{ background:'rgba(11,18,32,0.85)', backdropFilter:'blur(16px)' }}>
-          <div
-            className="w-full max-w-sm rounded-[24px] p-6 space-y-5"
-            style={{ background:'rgba(18,26,42,0.98)', border:'1px solid rgba(255,255,255,0.07)', boxShadow:'0 20px 60px rgba(0,0,0,0.6)', animation:'homeCardIn 0.35s ease-out both' }}
-          >
-            {/* Modal header */}
+          <div className="w-full max-w-sm rounded-[24px] p-6 space-y-5"
+            style={{ background:'rgba(18,26,42,0.98)', border:'1px solid rgba(255,255,255,0.07)', boxShadow:'0 20px 60px rgba(0,0,0,0.6)', animation:'fadeUp 0.35s ease-out both' }}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color:'#6B7895' }}>Admin</p>
@@ -763,12 +736,10 @@ export default function AdminView({ supabase }: { supabase: any }) {
               </div>
               <button onClick={() => setShowCreate(false)}
                 className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95"
-                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}
-              >
+                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
                 <X size={16} style={{ color:'#A8B3CF' }} />
               </button>
             </div>
-
             <div className="space-y-3">
               {[
                 { label:'Nombre completo', field:'full_name', type:'text',     placeholder:'Ej: Alejandro Gómez' },
@@ -777,36 +748,41 @@ export default function AdminView({ supabase }: { supabase: any }) {
               ].map(({ label, field, type, placeholder }) => (
                 <div key={field}>
                   <label style={lbl}>{label}</label>
-                  <input
-                    type={type} placeholder={placeholder}
-                    style={inp}
+                  <input type={type} placeholder={placeholder} style={inp}
                     value={(newUser as any)[field]}
-                    onChange={e => setNewUser(p => ({...p, [field]: e.target.value}))}
-                  />
+                    onChange={e => setNewUser(p => ({...p, [field]: e.target.value}))} />
                 </div>
               ))}
               <div>
                 <label style={lbl}>Rol</label>
                 <div className="flex gap-2">
                   {['user','admin'].map(r => (
-                    <button key={r} type="button"
-                      onClick={() => setNewUser(p => ({...p, role: r}))}
+                    <button key={r} type="button" onClick={() => setNewUser(p => ({...p, role: r}))}
                       className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
                       style={newUser.role===r
                         ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }
-                        : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }
-                      }
-                    >{r}</button>
+                        : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                      {r}
+                    </button>
                   ))}
                 </div>
               </div>
             </div>
-
-            <button
-              onClick={handleCreateUser} disabled={creating}
-              style={{ ...btnPrimary, opacity: creating?0.6:1 } as React.CSSProperties}
-              className="transition-all active:scale-[0.97]"
-            >
+            <button onClick={async () => {
+              if (!newUser.email || !newUser.password || !newUser.full_name) return toast('Completa todos los campos', true)
+              setCreating(true)
+              try {
+                const { data: authData, error: authError } = await db.auth.admin.createUser({ email: newUser.email, password: newUser.password, email_confirm: true })
+                if (authError) throw new Error(authError.message)
+                const { error: profileError } = await db.from('profiles').upsert({ id: authData.user.id, full_name: newUser.full_name, role: newUser.role || 'user', email: newUser.email })
+                if (profileError) throw new Error(profileError.message)
+                toast('Usuario creado correctamente')
+                setShowCreate(false)
+                setNewUser({ full_name: '', email: '', password: '', role: 'user' })
+                loadUsers()
+              } catch (e: any) { toast(e.message || 'Error al crear usuario', true) }
+              finally { setCreating(false) }
+            }} disabled={creating} style={{ ...btnPrimary, opacity: creating?0.6:1 } as React.CSSProperties} className="transition-all active:scale-[0.97]">
               <UserPlus size={16} /> {creating ? 'Creando...' : 'Crear Usuario'}
             </button>
           </div>
