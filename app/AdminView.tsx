@@ -68,6 +68,12 @@ export default function AdminView({ supabase }: { supabase: any }) {
   const [editingEx, setEditingEx] = useState<{[key: string]: RoutineEx}>({})
   const [newRoutineName, setNewRoutineName] = useState('')
 
+  // Add exercise to routine
+  const [exSearch, setExSearch] = useState<{[routineId: string]: string}>({})
+  const [exResults, setExResults] = useState<{[routineId: string]: any[]}>({})
+  const [newExConfig, setNewExConfig] = useState<{[routineId: string]: {sets: number, reps: string, rest_time: number, selectedEx: any|null}}>({})
+  const [addingEx, setAddingEx] = useState<{[routineId: string]: boolean}>({})
+
   const loadUsers = async () => {
     const { data } = await adminSupabase.from('profiles').select('*')
     setUsers(data || [])
@@ -220,6 +226,46 @@ export default function AdminView({ supabase }: { supabase: any }) {
       ? { ...r, routine_exercises: r.routine_exercises.filter(e => e.id !== exId) }
       : r
     ))
+  }
+
+  // ── Add exercise to routine ────────────────────────────────────────────────
+  const searchExercises = async (routineId: string, query: string) => {
+    setExSearch(p => ({ ...p, [routineId]: query }))
+    if (query.trim().length < 2) { setExResults(p => ({ ...p, [routineId]: [] })); return }
+    const { data } = await adminSupabase
+      .from('all_exercises')
+      .select('id, name, target, body_part')
+      .ilike('name', `%${query.trim()}%`)
+      .limit(8)
+    setExResults(p => ({ ...p, [routineId]: data || [] }))
+  }
+
+  const selectExerciseForRoutine = (routineId: string, ex: any) => {
+    setNewExConfig(p => ({ ...p, [routineId]: { sets: 3, reps: '10', rest_time: 60, selectedEx: ex } }))
+    setExSearch(p => ({ ...p, [routineId]: ex.name }))
+    setExResults(p => ({ ...p, [routineId]: [] }))
+  }
+
+  const addExerciseToRoutine = async (routineId: string) => {
+    const cfg = newExConfig[routineId]
+    if (!cfg?.selectedEx) return
+    setAddingEx(p => ({ ...p, [routineId]: true }))
+    const { error } = await adminSupabase.from('routine_exercises').insert([{
+      routine_id: routineId,
+      exercise_id: cfg.selectedEx.id,
+      sets: cfg.sets,
+      reps: String(cfg.reps),
+      rest_time: cfg.rest_time,
+    }])
+    if (error) { toast('Error al añadir ejercicio', true) }
+    else {
+      toast('Ejercicio añadido')
+      setExSearch(p => ({ ...p, [routineId]: '' }))
+      setNewExConfig(p => ({ ...p, [routineId]: { sets: 3, reps: '10', rest_time: 60, selectedEx: null } }))
+      const exs = await loadExercises(routineId)
+      setRoutines(prev => prev.map(r => r.id === routineId ? { ...r, routine_exercises: exs } : r))
+    }
+    setAddingEx(p => ({ ...p, [routineId]: false }))
   }
 
   // ── Loading ────────────────────────────────────────────────────────────────
@@ -448,6 +494,66 @@ export default function AdminView({ supabase }: { supabase: any }) {
                 {expandedRoutine === routine.id && (
                   <div className="px-4 pb-4 space-y-2" style={{ borderTop:'1px solid rgba(255,255,255,0.05)' }}>
                     <div className="pt-3" />
+
+                    {/* ── Buscador de ejercicios ── */}
+                    <div className="rounded-2xl overflow-visible space-y-2 pb-2" style={{ background:'rgba(0,229,168,0.04)', border:'1px solid rgba(0,229,168,0.15)', padding:'12px' }}>
+                      <p className="text-[9px] uppercase font-black tracking-wider" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
+                      <div className="relative">
+                        <input
+                          style={{ ...inp, fontSize: 13 } as React.CSSProperties}
+                          placeholder="Buscar ejercicio..."
+                          value={exSearch[routine.id] || ''}
+                          onChange={e => searchExercises(routine.id, e.target.value)}
+                        />
+                        {(exResults[routine.id] || []).length > 0 && (
+                          <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-2xl overflow-hidden" style={{ background:'#0f1a2e', border:'1px solid rgba(0,229,168,0.2)', boxShadow:'0 8px 30px rgba(0,0,0,0.6)' }}>
+                            {exResults[routine.id].map((ex: any) => (
+                              <button key={ex.id} onClick={() => selectExerciseForRoutine(routine.id, ex)}
+                                className="w-full text-left px-4 py-3 transition-all"
+                                style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
+                                onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.08)')}
+                                onMouseLeave={e => (e.currentTarget.style.background='transparent')}
+                              >
+                                <p className="text-sm font-bold text-white">{ex.name}</p>
+                                <p className="text-[10px] uppercase font-bold" style={{ color:'#6B7895' }}>{ex.target} · {ex.body_part}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {newExConfig[routine.id]?.selectedEx && (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { label:'Series', field:'sets', type:'number' },
+                              { label:'Reps',   field:'reps', type:'text'   },
+                              { label:'Desc(s)', field:'rest_time', type:'number' },
+                            ].map(({ label, field, type }) => (
+                              <div key={field}>
+                                <label style={{ ...lbl, marginBottom: 3 }}>{label}</label>
+                                <input
+                                  type={type}
+                                  className="text-center font-bold text-sm"
+                                  style={{ ...inp, padding:'8px 4px', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.3)' } as React.CSSProperties}
+                                  value={(newExConfig[routine.id] as any)[field] ?? ''}
+                                  onChange={e => setNewExConfig(p => ({ ...p, [routine.id]: { ...p[routine.id], [field]: type === 'number' ? Number(e.target.value) : e.target.value } }))}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => addExerciseToRoutine(routine.id)}
+                            disabled={addingEx[routine.id]}
+                            className="w-full py-2.5 rounded-xl font-black uppercase text-xs text-white flex items-center justify-center gap-2 transition-all active:scale-95"
+                            style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', opacity: addingEx[routine.id] ? 0.6 : 1 }}
+                          >
+                            <Plus size={14} /> {addingEx[routine.id] ? 'Añadiendo...' : 'Añadir a rutina'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     {(!routine.routine_exercises || routine.routine_exercises.length === 0) && (
                       <p className="text-xs text-center py-4" style={{ color:'#6B7895' }}>Sin ejercicios en esta rutina</p>
                     )}
