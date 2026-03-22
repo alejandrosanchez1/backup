@@ -1179,6 +1179,13 @@ useEffect(() => {
                     setLoggingOut(true)
                     await new Promise(r => setTimeout(r, 700))
                     await supabase.auth.signOut()
+                    localStorage.clear()
+                    sessionStorage.clear()
+                    if ('caches' in window) {
+                      const keys = await caches.keys()
+                      await Promise.all(keys.map(k => caches.delete(k)))
+                    }
+                    window.location.reload()
                   }}
                   disabled={loggingOut}
                   className="w-full py-4 rounded-[20px] flex items-center justify-center gap-3 transition-all active:scale-[0.97]"
