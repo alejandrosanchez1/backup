@@ -80,8 +80,9 @@ export default function GymProApp() {
   const [isActive, setIsActive] = useState(false);
 
   const [userStats, setUserStats] = useState({
-    name: 'Atleta', age: '25', gender: 'Hombre', weight: '75', height: '1.75', focus: [] as string[], 
+    name: 'Atleta', age: '25', gender: 'Hombre', weight: '75', height: '1.75', focus: [] as string[],
     injuries: '', dietStyle: 'Equilibrada', experienceLevel: '', trainingDays: '5', role: 'user',
+    plan: 'Básico', membershipEnd: '' as string,
     diameters: { humeral: '6.3', radiocubital: '5', femoral: '8.6' },
     skinfolds: { biceps: '10', triceps: '12', subscapular: '14', suprailiaco: '15', abdominal: '19', muslo: '15', pierna: '15', pectoral: '5' },
     perimeters: { thorax: '91', abdomen: '69', cadera: '96', bicepsR: '26', bicepsC: '29', muslo: '60', pantorrilla: '33' },
@@ -223,17 +224,16 @@ export default function GymProApp() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [isResting, isActive]);
 
-  // ── Load exercises when entering library ──────────────────────────────────
+  // ── Refresh data on view change ───────────────────────────────────────────
   useEffect(() => {
+    if (!user) return;
     if (currentView === 'exercises') fetchExercises();
-  }, [currentView]);
-
-  // ── Load history ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (user) {
+    if (currentView === 'home' || currentView === 'progress') {
+      fetchProfile(user.id);
       fetchHistory();
-      if (currentView === 'progress') fetchBodyStats();
     }
+    if (currentView === 'progress') fetchBodyStats();
+    if (currentView === 'routines' || currentView === 'myRoutines') fetchRoutines(user.id);
   }, [user, currentView]);
 
   // ── Init workout data when routine selected ───────────────────────────────
@@ -290,6 +290,8 @@ useEffect(() => {
       perimeters: data.measurements?.perimeters || prev.perimeters, 
       results: data.measurements?.results || prev.results,
       role: data.role || 'user',
+      plan: data.plan || 'Básico',
+      membershipEnd: data.membership_end || '',
     }));
   };
 
@@ -923,9 +925,60 @@ useEffect(() => {
                     <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: '#00E5A8' }}>
                       {userStats.role === 'admin' ? 'Administrador' : 'Atleta activo'}
                     </span>
+                    {userStats.role !== 'admin' && (
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-lg"
+                        style={{ background:'rgba(0,229,168,0.1)', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.2)' }}>
+                        {userStats.plan}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {/* Membresía */}
+              {(() => {
+                const end = userStats.membershipEnd
+                const days = end ? Math.ceil((new Date(end).getTime() - Date.now()) / 86400000) : null
+                const isExpired = days !== null && days <= 0
+                const isWarning = days !== null && days > 0 && days <= 7
+                const isActive  = days !== null && days > 7
+                const color  = isActive ? '#00E5A8' : isWarning ? '#F59E0B' : '#ef4444'
+                const bg     = isActive ? 'rgba(0,229,168,0.08)' : isWarning ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
+                const border = isActive ? 'rgba(0,229,168,0.2)'  : isWarning ? 'rgba(245,158,11,0.2)'  : 'rgba(239,68,68,0.2)'
+                return (
+                  <div className="p-4 rounded-[20px] flex items-center justify-between gap-4"
+                    style={{ background: bg, border: `1px solid ${border}` }}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: bg, border: `1px solid ${border}` }}>
+                        <span style={{ fontSize: 18 }}>👑</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] uppercase font-black tracking-widest" style={{ color }}>Membresía · {userStats.plan}</p>
+                        {days === null ? (
+                          <p className="text-sm font-black" style={{ color: '#6B7895' }}>Sin fecha asignada</p>
+                        ) : isExpired ? (
+                          <p className="text-sm font-black" style={{ color: '#ef4444' }}>Acceso caducado</p>
+                        ) : (
+                          <p className="text-sm font-black text-white">{days} días restantes</p>
+                        )}
+                        {end && !isExpired && (
+                          <p className="text-[10px]" style={{ color: '#6B7895' }}>
+                            Vence el {new Date(end).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {/* Barra de progreso (últimos 30 días visible) */}
+                    {isActive && days !== null && (
+                      <div className="shrink-0 text-right">
+                        <p className="text-2xl font-black" style={{ color }}>{days}</p>
+                        <p className="text-[9px] uppercase font-bold" style={{ color: '#6B7895' }}>días</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Métricas principales */}
               <div className="grid grid-cols-3 gap-3">

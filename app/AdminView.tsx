@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   X, Save, Trash2, Shield, Users, Plus, UserPlus,
   Dumbbell, ChevronRight, Search, Check, ArrowLeft,
-  Clock, RotateCcw, Hash
+  Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown
 } from 'lucide-react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wrjenrtnojmhianqzxlo.supabase.co'
@@ -19,10 +19,10 @@ type Profile = {
   id: string; full_name: string; weight: string; height: string
   age: number; gender: string; role: string; experience_level: string
   training_days: number; injuries: string; diet_style: string; focus_areas: string[]
-  email?: string
+  email?: string; created_at?: string; plan?: string; membership_end?: string
 }
 type Meal = { name: string; protein: string[]; carbs: string[]; fat: string[] }
-type RoutineEx = { id: number; exercise_id: string; name: string; sets: number; reps: string; rest_time: number; order?: number }
+type RoutineEx = { id: number; exercise_id: string; name: string; sets: number; reps: string; rest_time: number; order: number }
 type Routine   = { id: string; name: string; exercises: RoutineEx[] }
 
 const MEAL_NAMES    = ['Desayuno', 'Media Mañana', 'Almuerzo', 'Media Tarde', 'Cena']
@@ -93,9 +93,26 @@ export default function AdminView({ supabase }: { supabase: any }) {
   }
   useEffect(() => { loadUsers() }, [])
 
+  const deleteUser = async (user: Profile) => {
+    if (!confirm(`¿Eliminar a ${user.full_name}? Esta acción no se puede deshacer.`)) return
+    try {
+      await db.from('routine_exercises').delete().in('routine_id',
+        (await db.from('routines').select('id').eq('user_id', user.id)).data?.map((r: any) => r.id) || []
+      )
+      await db.from('routines').delete().eq('user_id', user.id)
+      await db.from('nutrition_plans').delete().eq('user_id', user.id)
+      await db.from('profiles').delete().eq('id', user.id)
+      await db.auth.admin.deleteUser(user.id)
+      setUsers(prev => prev.filter(u => u.id !== user.id))
+      setSelectedUser(null)
+      toast(`${user.full_name} eliminado`)
+    } catch (e: any) { toast(e.message || 'Error al eliminar usuario', true) }
+  }
+
   const selectUser = async (user: Profile) => {
     setSelectedUser(user)
     setEditProfile(user)
+    openMembership(user)
     setActiveTab('profile')
     setSelectedRoutine(null)
     const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', user.id).single()
@@ -132,7 +149,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
       sets: re.sets || 3,
       reps: re.reps || '10',
       rest_time: re.rest_time || 60,
-      order: re.order,
+      order: re.order ?? 0,
     }))
   }
 
@@ -213,7 +230,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
       rest_time: exConfig.rest_time,
       order: maxOrder + 1,
     }])
-    if (error) toast('Error al añadir ejercicio', true)
+    if (error) toast(error.message || 'Error al añadir ejercicio', true)
     else {
       toast(`${selectedEx.name} añadido`)
       setExSearch(''); setSelectedEx(null); setExResults([])
@@ -221,6 +238,25 @@ export default function AdminView({ supabase }: { supabase: any }) {
       await refreshSelectedRoutine()
     }
     setAddingEx(false)
+  }
+
+  // ── Exercise reorder ─────────────────────────────────────────────────────
+  const moveExercise = async (idx: number, dir: -1 | 1) => {
+    if (!selectedRoutine) return
+    const exs = [...selectedRoutine.exercises]
+    const swapIdx = idx + dir
+    if (swapIdx < 0 || swapIdx >= exs.length) return
+
+    const a = { ...exs[idx], order: exs[swapIdx].order }
+    const b = { ...exs[swapIdx], order: exs[idx].order }
+    exs[idx] = a; exs[swapIdx] = b
+    exs.sort((x, y) => x.order - y.order)
+    setSelectedRoutine(prev => prev ? { ...prev, exercises: exs } : null)
+
+    await Promise.all([
+      db.from('routine_exercises').update({ order: a.order }).eq('id', a.id),
+      db.from('routine_exercises').update({ order: b.order }).eq('id', b.id),
+    ])
   }
 
   // ── Exercise edit (inline, saved on blur) ────────────────────────────────
@@ -239,6 +275,39 @@ export default function AdminView({ supabase }: { supabase: any }) {
     await db.from('routine_exercises').delete().eq('id', exId)
     setSelectedRoutine(prev => prev ? { ...prev, exercises: prev.exercises.filter(e => e.id !== exId) } : null)
     toast('Ejercicio eliminado')
+  }
+
+  // ── Membership ────────────────────────────────────────────────────────────
+  const [membership, setMembership] = useState({ plan: 'Básico', membership_end: '' })
+
+  const openMembership = (user: Profile) => {
+    setMembership({ plan: user.plan || 'Básico', membership_end: user.membership_end || '' })
+  }
+
+  const extendMembership = (months: number) => {
+    const base = membership.membership_end && new Date(membership.membership_end) > new Date()
+      ? new Date(membership.membership_end)
+      : new Date()
+    base.setMonth(base.getMonth() + months)
+    setMembership(p => ({ ...p, membership_end: base.toISOString().split('T')[0] }))
+  }
+
+  const saveMembership = async () => {
+    if (!selectedUser) return
+    const { error } = await db.from('profiles').update({
+      plan: membership.plan,
+      membership_end: membership.membership_end || null,
+    }).eq('id', selectedUser.id)
+    if (error) return toast(error.message || 'Error al guardar membresía', true)
+    setSelectedUser(prev => prev ? { ...prev, plan: membership.plan, membership_end: membership.membership_end } : null)
+    setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, plan: membership.plan, membership_end: membership.membership_end } : u))
+    toast('Membresía actualizada')
+  }
+
+  const daysLeft = (end?: string) => {
+    if (!end) return null
+    const diff = Math.ceil((new Date(end).getTime() - Date.now()) / 86400000)
+    return diff
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -448,11 +517,23 @@ export default function AdminView({ supabase }: { supabase: any }) {
                   </div>
                   <p className="font-black text-sm text-white break-words">{ex.name}</p>
                 </div>
-                <button onClick={() => deleteExercise(ex.id)}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-95 ml-2"
-                  style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}>
-                  <Trash2 size={13} style={{ color:'#ef4444' }} />
-                </button>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <button onClick={() => moveExercise(idx, -1)} disabled={idx === 0}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', opacity: idx === 0 ? 0.25 : 1 }}>
+                    <ChevronUp size={14} style={{ color:'#A8B3CF' }} />
+                  </button>
+                  <button onClick={() => moveExercise(idx, 1)} disabled={idx === selectedRoutine.exercises.length - 1}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', opacity: idx === selectedRoutine.exercises.length - 1 ? 0.25 : 1 }}>
+                    <ChevronDown size={14} style={{ color:'#A8B3CF' }} />
+                  </button>
+                  <button onClick={() => deleteExercise(ex.id)}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                    style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}>
+                    <Trash2 size={13} style={{ color:'#ef4444' }} />
+                  </button>
+                </div>
               </div>
 
               {/* Inline editable fields */}
@@ -509,12 +590,24 @@ export default function AdminView({ supabase }: { supabase: any }) {
             style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
             <ArrowLeft size={18} style={{ color:'#A8B3CF' }} />
           </button>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-black uppercase text-white break-words">{selectedUser.full_name}</h1>
             <p className="text-[10px] uppercase font-bold" style={{ color: selectedUser.role === 'admin' ? '#00E5A8' : '#6B7895' }}>
               {selectedUser.role} · {selectedUser.email || ''}
             </p>
+            {selectedUser.created_at && (
+              <p className="text-[10px] flex items-center gap-1 mt-0.5" style={{ color:'#6B7895' }}>
+                <Calendar size={10} />
+                Inscrito el {new Date(selectedUser.created_at).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric' })}
+              </p>
+            )}
           </div>
+          <button onClick={() => deleteUser(selectedUser)}
+            className="w-10 h-10 flex items-center justify-center rounded-2xl transition-all active:scale-95 shrink-0"
+            style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)' }}
+            title="Eliminar usuario">
+            <UserX size={16} style={{ color:'#ef4444' }} />
+          </button>
         </div>
 
         {/* Toasts */}
@@ -536,6 +629,109 @@ export default function AdminView({ supabase }: { supabase: any }) {
         {/* ── TAB: PROFILE ── */}
         {activeTab === 'profile' && (
           <div className="space-y-4">
+            {/* Fecha de inscripción */}
+            {selectedUser.created_at && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-[16px]"
+                style={{ background:'rgba(124,92,255,0.08)', border:'1px solid rgba(124,92,255,0.2)' }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background:'rgba(124,92,255,0.15)' }}>
+                  <Calendar size={15} style={{ color:'#7C5CFF' }} />
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase font-black tracking-widest" style={{ color:'#7C5CFF' }}>Fecha de inscripción</p>
+                  <p className="text-sm font-black text-white">
+                    {new Date(selectedUser.created_at).toLocaleDateString('es-ES', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}
+                  </p>
+                  <p className="text-[10px]" style={{ color:'#6B7895' }}>
+                    Hace {Math.floor((Date.now() - new Date(selectedUser.created_at).getTime()) / 86400000)} días
+                  </p>
+                </div>
+              </div>
+            )}
+            {/* ── MEMBRESÍA ── */}
+            {(() => {
+              const days = daysLeft(membership.membership_end)
+              const isExpired = days !== null && days <= 0
+              const isWarning = days !== null && days > 0 && days <= 7
+              const isActive  = days !== null && days > 7
+              const statusColor = isActive ? '#00E5A8' : isWarning ? '#F59E0B' : '#ef4444'
+              const statusBg    = isActive ? 'rgba(0,229,168,0.08)' : isWarning ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
+              const statusBorder= isActive ? 'rgba(0,229,168,0.2)'  : isWarning ? 'rgba(245,158,11,0.2)'  : 'rgba(239,68,68,0.2)'
+              return (
+                <div className="p-4 space-y-4 rounded-[20px]"
+                  style={{ background: statusBg, border: `1px solid ${statusBorder}` }}>
+                  {/* Status row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Crown size={16} style={{ color: statusColor }} />
+                      <p className="text-[10px] uppercase font-black tracking-widest" style={{ color: statusColor }}>Membresía</p>
+                    </div>
+                    <div className="px-3 py-1 rounded-xl text-[10px] font-black uppercase"
+                      style={{ background: statusBg, border: `1px solid ${statusBorder}`, color: statusColor }}>
+                      {days === null ? 'Sin fecha' : isExpired ? 'Caducada' : isWarning ? `⚠ ${days}d restantes` : `✓ ${days}d restantes`}
+                    </div>
+                  </div>
+
+                  {/* Plan selector */}
+                  <div>
+                    <label style={lbl}>Plan</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {['Básico','Premium','VIP','Élite'].map(p => (
+                        <button key={p} type="button"
+                          onClick={() => setMembership(prev => ({ ...prev, plan: p }))}
+                          className="px-3 py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                          style={membership.plan === p
+                            ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }
+                            : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Fecha fin */}
+                  <div>
+                    <label style={lbl}>Fecha de vencimiento</label>
+                    <input
+                      type="date"
+                      style={{ ...inp, colorScheme: 'dark' } as React.CSSProperties}
+                      value={membership.membership_end}
+                      onChange={e => setMembership(p => ({ ...p, membership_end: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* Botones rápidos */}
+                  <div>
+                    <label style={lbl}>Extender acceso</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[{ label:'+1m', months:1 },{ label:'+3m', months:3 },{ label:'+6m', months:6 },{ label:'+1a', months:12 }].map(({ label, months }) => (
+                        <button key={label} type="button" onClick={() => extendMembership(months)}
+                          className="py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                          style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#A8B3CF' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Revocar / Guardar */}
+                  <div className="flex gap-2">
+                    <button type="button"
+                      onClick={() => setMembership(p => ({ ...p, membership_end: new Date(Date.now() - 86400000).toISOString().split('T')[0] }))}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                      style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', color:'#ef4444' }}>
+                      Revocar acceso
+                    </button>
+                    <button type="button" onClick={saveMembership}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase text-white transition-all active:scale-95 flex items-center justify-center gap-1"
+                      style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow:'0 4px 16px rgba(0,229,168,0.3)' }}>
+                      <Save size={13} /> Guardar
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
             <div className="p-5 space-y-4" style={card}>
               <div>
                 <label style={lbl}>Nombre completo</label>
@@ -770,6 +966,12 @@ export default function AdminView({ supabase }: { supabase: any }) {
                   {user.gender} · {user.age} años · {user.weight}kg
                   {' · '}<span style={{ color: user.role==='admin'?'#00E5A8':'#6B7895' }}>{user.role}</span>
                 </p>
+                {user.created_at && (
+                  <p className="text-[9px] mt-0.5 flex items-center gap-1" style={{ color:'rgba(107,120,149,0.7)' }}>
+                    <Calendar size={9} />
+                    {new Date(user.created_at).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })}
+                  </p>
+                )}
               </div>
             </div>
             <ChevronRight size={16} style={{ color:'#6B7895', flexShrink:0 }} />
