@@ -41,17 +41,17 @@ const completedSets = exercise.sets.filter(s => s.completed).length;
     )}>
       <CardHeader className="pb-3 pt-4">
         <div className="flex items-start justify-between">
-          <div className="flex gap-3">
+          <div className="flex gap-3 min-w-0">
             <div className={cn(
               "p-2 rounded-lg transition-colors",
               isAllDone ? "bg-green-500/20 text-green-500" : "bg-primary/10 text-primary"
             )}>
               <Dumbbell size={18} />
             </div>
-            <div>
-              <h3 className="font-bold text-base leading-none flex items-center gap-2">
-                {exercise.name}
-                {isAllDone && <CheckCircle2 size={14} className="text-green-500" />}
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-base leading-tight flex flex-wrap items-center gap-2 break-words">
+                <span className="break-words">{exercise.name}</span>
+                {isAllDone && <CheckCircle2 size={14} className="text-green-500 shrink-0" />}
               </h3>
               <p className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wider font-medium">
                 {completedSets} de {totalSets} series completadas

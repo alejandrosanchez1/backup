@@ -134,8 +134,8 @@ function WorkoutSession() {
                     <img src={ex.gifUrl} className="w-full h-full object-contain" alt="" />
                  </div>
                )}
-               <div>
-                  <h2 className="text-xl font-black uppercase italic leading-tight pr-6">{ex.name}</h2>
+               <div className="min-w-0 flex-1">
+                  <h2 className="text-xl font-black uppercase italic leading-tight pr-6 break-words">{ex.name}</h2>
                   <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-tighter">{ex.target} • {ex.bodyPart}</p>
                </div>
             </div>

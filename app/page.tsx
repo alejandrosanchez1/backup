@@ -66,6 +66,7 @@ export default function GymProApp() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [routines, setRoutines] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
+  const [bodyStatsHistory, setBodyStatsHistory] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [activeRoutine, setActiveRoutine] = useState<any>(null);
   const [workoutData, setWorkoutData] = useState<any>({});
@@ -229,7 +230,10 @@ export default function GymProApp() {
 
   // ── Load history ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (user) fetchHistory();
+    if (user) {
+      fetchHistory();
+      if (currentView === 'progress') fetchBodyStats();
+    }
   }, [user, currentView]);
 
   // ── Init workout data when routine selected ───────────────────────────────
@@ -324,6 +328,16 @@ useEffect(() => {
       }));
       setHistory(cleanData);
     }
+  };
+
+  const fetchBodyStats = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('body_stats_history')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('date', { ascending: true });
+    if (data) setBodyStatsHistory(data);
   };
 
   // ── Navigation guard ──────────────────────────────────────────────────────
@@ -489,6 +503,111 @@ useEffect(() => {
       return c;
     } catch (e) { return 0; }
   }, [history]);
+
+  // ── Estadísticas de perfil ────────────────────────────────────────────────
+  const profileStats = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const trainedDays = new Set(
+      history
+        .filter((log: any) => {
+          const raw = log.date || log.created_at;
+          if (!raw) return false;
+          const d = new Date(raw);
+          return d.getFullYear() === year && d.getMonth() === month;
+        })
+        .map((log: any) => new Date(log.date || log.created_at).getDate())
+    );
+
+    const volumePerSession = history.slice(0, 8).reverse().map((log: any) => {
+      const details = Array.isArray(log.workout_details) ? log.workout_details : [];
+      const volume = details.reduce((t: number, ex: any) => {
+        const sets = Array.isArray(ex.sets) ? ex.sets : [];
+        return t + sets.reduce((s: number, set: any) => s + (parseFloat(set.weight) || 0) * (parseInt(set.reps) || 0), 0);
+      }, 0);
+      return { date: log.date || log.created_at, volume: Math.round(volume), name: log.routine_name || 'Entreno' };
+    });
+
+    const maxVol = volumePerSession.reduce((m, s) => Math.max(m, s.volume), 1);
+
+    let totalVolume = 0;
+    let maxWeight = 0;
+    let maxWeightExercise = '';
+    const exercisePRs: { [key: string]: number } = {};
+
+    history.forEach((log: any) => {
+      const details = Array.isArray(log.workout_details) ? log.workout_details : [];
+      details.forEach((ex: any) => {
+        const exName = ex.exercise_name || '';
+        const sets = Array.isArray(ex.sets) ? ex.sets : [];
+        sets.forEach((set: any) => {
+          const w = parseFloat(set.weight) || 0;
+          const r = parseInt(set.reps) || 0;
+          totalVolume += w * r;
+          if (w > maxWeight) { maxWeight = w; maxWeightExercise = exName; }
+          if (w > 0 && (!exercisePRs[exName] || w > exercisePRs[exName])) exercisePRs[exName] = w;
+        });
+      });
+    });
+
+    const topPRs = Object.entries(exercisePRs)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    const fmtVol = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(1)}K` : `${v}`;
+
+    return {
+      volumePerSession, maxVol,
+      totalVolume: fmtVol(Math.round(totalVolume)),
+      totalVolRaw: Math.round(totalVolume),
+      maxWeight, maxWeightExercise,
+      topPRs,
+      totalWorkouts: history.length,
+      daysInMonth,
+      trainedDays,
+      monthName: now.toLocaleString('es-ES', { month: 'long' }),
+    };
+  }, [history]);
+
+  const physicalProgress = useMemo(() => {
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+    const prevMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+    const prevYear = thisMonth === 0 ? thisYear - 1 : thisYear;
+
+    const thisEntries = bodyStatsHistory.filter((e: any) => {
+      const d = new Date(e.date); return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+    const prevEntries = bodyStatsHistory.filter((e: any) => {
+      const d = new Date(e.date); return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+    });
+
+    const cur = thisEntries[thisEntries.length - 1];
+    const prv = prevEntries[prevEntries.length - 1];
+
+    const diff = (a: number | null | undefined, b: number | null | undefined) => {
+      if (a == null || b == null) return null;
+      const d = +(a - b).toFixed(1);
+      return d > 0 ? `+${d}` : `${d}`;
+    };
+
+    const curWeight = cur?.weight ?? parseFloat(userStats.weight) ?? 0;
+    const prvWeight = prv?.weight ?? null;
+    const curBmi = +(cur?.measurements?.results?.bmi ?? userStats.results?.bmi ?? 0);
+    const prvBmi = prv?.measurements?.results?.bmi ? +prv.measurements.results.bmi : null;
+    const curFat = +(cur?.measurements?.results?.fatPercentage ?? userStats.results?.fatPercentage ?? 0);
+    const prvFat = prv?.measurements?.results?.fatPercentage ? +prv.measurements.results.fatPercentage : null;
+
+    return {
+      weight: { cur: curWeight, diff: diff(curWeight, prvWeight) },
+      bmi: { cur: curBmi, diff: diff(curBmi, prvBmi) },
+      fat: { cur: curFat, diff: diff(curFat, prvFat) },
+    };
+  }, [bodyStatsHistory, userStats]);
 
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!user) {
@@ -858,6 +977,148 @@ useEffect(() => {
                 </div>
               </div>
 
+              {/* ── PROGRESO DEL ENTRENAMIENTO ─── */}
+              <div className="p-5 rounded-[20px] space-y-4" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <h2 className="text-xs font-black uppercase flex items-center gap-2" style={{ color: '#00E5A8' }}>
+                  <Activity size={14}/> Progreso del Entrenamiento
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-2xl text-center" style={{ background: 'rgba(0,229,168,0.08)', border: '1px solid rgba(0,229,168,0.15)' }}>
+                    <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#6B7895' }}>Entrenamientos</p>
+                    <p className="text-2xl font-black text-white">{profileStats.totalWorkouts}</p>
+                    <p className="text-[9px]" style={{ color: '#00E5A8' }}>total</p>
+                  </div>
+                  <div className="p-3 rounded-2xl text-center" style={{ background: 'rgba(0,194,255,0.08)', border: '1px solid rgba(0,194,255,0.15)' }}>
+                    <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#6B7895' }}>Volumen Total</p>
+                    <p className="text-2xl font-black text-white">{profileStats.totalVolume}</p>
+                    <p className="text-[9px]" style={{ color: '#00C2FF' }}>kg movidos</p>
+                  </div>
+                </div>
+                {/* Gráfica de volumen últimas sesiones */}
+                {profileStats.volumePerSession.length > 0 && (
+                  <div>
+                    <p className="text-[9px] uppercase font-bold mb-3" style={{ color: '#6B7895' }}>Volumen por sesión (últimas {profileStats.volumePerSession.length})</p>
+                    <div className="flex items-end gap-1.5 h-20">
+                      {profileStats.volumePerSession.map((s, i) => {
+                        const pct = profileStats.maxVol > 0 ? (s.volume / profileStats.maxVol) * 100 : 0;
+                        return (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                            <p className="text-[7px] font-bold" style={{ color: '#6B7895' }}>{s.volume > 0 ? (s.volume >= 1000 ? `${(s.volume/1000).toFixed(1)}K` : s.volume) : '-'}</p>
+                            <div className="w-full rounded-t-lg transition-all" style={{ height: `${Math.max(pct, 4)}%`, background: pct > 80 ? 'linear-gradient(180deg,#00E5A8,#00C2FF)' : pct > 40 ? 'rgba(0,229,168,0.6)' : 'rgba(0,229,168,0.25)', minHeight: 3 }} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── PROGRESO FÍSICO ─── */}
+              <div className="p-5 rounded-[20px] space-y-3" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <h2 className="text-xs font-black uppercase flex items-center gap-2" style={{ color: '#a78bfa' }}>
+                  <Scale size={14}/> Progreso Físico
+                </h2>
+                <p className="text-[9px] uppercase font-bold" style={{ color: '#6B7895' }}>Cambio vs mes anterior</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Peso', cur: physicalProgress.weight.cur, diff: physicalProgress.weight.diff, unit: 'kg', color: '#60a5fa' },
+                    { label: 'IMC', cur: physicalProgress.bmi.cur, diff: physicalProgress.bmi.diff, unit: '', color: '#a78bfa' },
+                    { label: '% Grasa', cur: physicalProgress.fat.cur, diff: physicalProgress.fat.diff, unit: '%', color: '#f87171' },
+                  ].map(({ label, cur, diff, unit, color }) => (
+                    <div key={label} className="p-3 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-[8px] uppercase font-bold mb-1" style={{ color: '#6B7895' }}>{label}</p>
+                      <p className="text-lg font-black" style={{ color }}>{cur || '—'}<span className="text-[9px]">{unit}</span></p>
+                      {diff ? (
+                        <p className="text-[9px] font-bold mt-0.5" style={{ color: diff.startsWith('-') ? '#f87171' : '#00E5A8' }}>{diff}{unit}</p>
+                      ) : (
+                        <p className="text-[9px] mt-0.5" style={{ color: '#6B7895' }}>sin datos</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── RENDIMIENTO / PRs ─── */}
+              <div className="p-5 rounded-[20px] space-y-3" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <h2 className="text-xs font-black uppercase flex items-center gap-2" style={{ color: '#fbbf24' }}>
+                  <Trophy size={14}/> Rendimiento & PRs
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-2xl" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                    <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#6B7895' }}>Peso máx. levantado</p>
+                    <p className="text-xl font-black" style={{ color: '#fbbf24' }}>{profileStats.maxWeight}<span className="text-xs"> kg</span></p>
+                    <p className="text-[9px] mt-0.5 break-words" style={{ color: '#6B7895' }}>{profileStats.maxWeightExercise || '—'}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                    <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#6B7895' }}>Ejercicios con PR</p>
+                    <p className="text-xl font-black" style={{ color: '#fbbf24' }}>{profileStats.topPRs.length}</p>
+                    <p className="text-[9px] mt-0.5" style={{ color: '#6B7895' }}>ejercicios top</p>
+                  </div>
+                </div>
+                {profileStats.topPRs.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[9px] uppercase font-bold" style={{ color: '#6B7895' }}>Top PRs</p>
+                    {profileStats.topPRs.map(([name, weight], i) => (
+                      <div key={name} className="flex items-center justify-between p-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-black w-4 text-center" style={{ color: i === 0 ? '#fbbf24' : i === 1 ? '#9ca3af' : '#cd7c2f' }}>{i + 1}</span>
+                          <p className="text-[10px] font-bold text-white break-words min-w-0">{name}</p>
+                        </div>
+                        <p className="text-sm font-black shrink-0 ml-2" style={{ color: '#fbbf24' }}>{weight} kg</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ── STREAK DEL MES ─── */}
+              <div className="p-5 rounded-[20px] space-y-3" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-black uppercase flex items-center gap-2" style={{ color: '#00E5A8' }}>
+                    <Calendar size={14}/> Días Entrenados
+                  </h2>
+                  <span className="text-xs font-black capitalize" style={{ color: '#6B7895' }}>{profileStats.monthName}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <p className="text-3xl font-black text-white">{profileStats.trainedDays.size}</p>
+                    <p className="text-[9px] uppercase font-bold" style={{ color: '#00E5A8' }}>de {profileStats.daysInMonth} días</p>
+                  </div>
+                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${(profileStats.trainedDays.size / profileStats.daysInMonth) * 100}%`, background: 'linear-gradient(90deg,#00E5A8,#00C2FF)' }} />
+                  </div>
+                  <p className="text-sm font-black" style={{ color: '#00E5A8' }}>{Math.round((profileStats.trainedDays.size / profileStats.daysInMonth) * 100)}%</p>
+                </div>
+                {/* Calendario del mes */}
+                <div className="grid grid-cols-7 gap-1">
+                  {['L','M','X','J','V','S','D'].map(d => (
+                    <p key={d} className="text-center text-[8px] font-bold pb-1" style={{ color: '#6B7895' }}>{d}</p>
+                  ))}
+                  {(() => {
+                    const now = new Date();
+                    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+                    const offset = firstDay === 0 ? 6 : firstDay - 1;
+                    const days = [];
+                    for (let i = 0; i < offset; i++) days.push(<div key={`e${i}`} />);
+                    for (let d = 1; d <= profileStats.daysInMonth; d++) {
+                      const trained = profileStats.trainedDays.has(d);
+                      const isToday = d === now.getDate();
+                      days.push(
+                        <div key={d} className="aspect-square rounded-lg flex items-center justify-center text-[10px] font-black transition-all"
+                          style={{
+                            background: trained ? 'linear-gradient(135deg,#00E5A8,#00C2FF)' : isToday ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
+                            color: trained ? '#000' : isToday ? '#fff' : '#6B7895',
+                            border: isToday && !trained ? '1px solid rgba(0,229,168,0.4)' : '1px solid transparent',
+                          }}>
+                          {d}
+                        </div>
+                      );
+                    }
+                    return days;
+                  })()}
+                </div>
+              </div>
+
               {/* Logout */}
               <div className="space-y-3 pt-2">
                 <button
@@ -1192,7 +1453,7 @@ useEffect(() => {
                     <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: 'linear-gradient(180deg,#00E5A8,#00C2FF)' }} />
 
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-black uppercase text-base text-white truncate">{r.name}</h3>
+                      <h3 className="font-black uppercase text-base text-white break-words">{r.name}</h3>
                       <div className="flex items-center gap-3 mt-1.5">
                         <span className="flex items-center gap-1 text-[10px] font-bold uppercase" style={{ color: '#6B7895' }}>
                           <Dumbbell size={10} /> {r.exercises?.length || 0} ejercicios
@@ -1284,7 +1545,7 @@ useEffect(() => {
                     <p className="text-[9px] font-bold uppercase tracking-[0.25em] mb-0.5" style={{ color: '#00E5A8' }}>
                       Entrenamiento Activo
                     </p>
-                    <h2 className="text-xl font-black tracking-tight uppercase text-white truncate">
+                    <h2 className="text-xl font-black tracking-tight uppercase text-white break-words">
                       {activeRoutine.name}
                     </h2>
                     <div className="flex items-center gap-2 mt-2">
@@ -1362,7 +1623,7 @@ useEffect(() => {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-black text-white uppercase tracking-tight truncate">
+                          <h3 className="text-base font-black text-white uppercase tracking-tight break-words">
                             {exercise.name || 'Ejercicio'}
                           </h3>
                           <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -1645,27 +1906,14 @@ useEffect(() => {
               <button
                 onClick={() => { setShowFinishConfirm(false); finishWorkout(); }}
                 className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest text-white transition-all active:scale-[0.97]"
-                style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 6px 24px rgba(0,229,168,0.35)' }}
+                style={{ background: 'linear-gradient(135deg,#ef4444,#dc2626)', boxShadow: '0 6px 24px rgba(239,68,68,0.35)' }}
               >
                 Sí, finalizar
               </button>
               <button
-                onClick={() => {
-                  setShowFinishConfirm(false);
-                  setIsActive(false);
-                  setActiveRoutine(null);
-                  setIsResting(false);
-                  setCurrentView('myRoutines');
-                }}
-                className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest transition-all active:scale-[0.97]"
-                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}
-              >
-                Descartar entreno
-              </button>
-              <button
                 onClick={() => setShowFinishConfirm(false)}
-                className="w-full py-3 font-bold uppercase text-xs tracking-widest transition-all active:scale-[0.97]"
-                style={{ color: '#6B7895' }}
+                className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest transition-all active:scale-[0.97]"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#A8B3CF' }}
               >
                 Seguir entrenando
               </button>
@@ -1676,35 +1924,23 @@ useEffect(() => {
 
       {/* ── WORKOUT NAV GUARD MODAL ───────────────────────────────────── */}
       {pendingNavTarget && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-6 backdrop-blur-xl" style={{ background: 'rgba(11,18,32,0.88)' }}>
-          <div
-            className="w-full max-w-sm rounded-[24px] p-7 space-y-6"
-            style={{ background: 'rgba(18,26,42,0.98)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
-          >
-            {/* Icon */}
-            <div className="flex justify-center">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.25)' }}>
-                <Timer size={32} style={{ color: '#FFA500' }} />
+        <div className="fixed inset-0 z-[1200] flex items-end justify-center bg-black/60 backdrop-blur-sm pb-8 px-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-3xl p-6 w-full max-w-sm space-y-4">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="bg-orange-500/10 p-4 rounded-full">
+                <Timer size={28} className="text-orange-400" />
               </div>
+              <p className="font-black text-white text-lg">Entreno en curso</p>
+              <p className="text-gray-400 text-sm">¿Qué deseas hacer con tu entrenamiento actual?</p>
             </div>
-
-            {/* Text */}
-            <div className="text-center space-y-2">
-              <h3 className="text-xl font-black uppercase text-white tracking-tight">Entreno en curso</h3>
-              <p className="text-sm" style={{ color: '#A8B3CF' }}>¿Qué deseas hacer con tu entrenamiento actual?</p>
-            </div>
-
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />
-
-            <div className="space-y-3">
+            <div className="space-y-2">
               <button
                 onClick={async () => {
                   await finishWorkout();
                   setCurrentView(pendingNavTarget as any);
                   setPendingNavTarget(null);
                 }}
-                className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest text-white transition-all active:scale-[0.97]"
-                style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 6px 24px rgba(0,229,168,0.35)' }}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all text-white font-black uppercase text-sm py-4 rounded-2xl"
               >
                 Finalizar y salir
               </button>
@@ -1716,15 +1952,13 @@ useEffect(() => {
                   setIsResting(false);
                   setPendingNavTarget(null);
                 }}
-                className="w-full py-4 rounded-[20px] font-black uppercase text-sm tracking-widest transition-all active:scale-[0.97]"
-                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}
+                className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all text-red-400 font-black uppercase text-sm py-4 rounded-2xl"
               >
                 Descartar entreno
               </button>
               <button
                 onClick={() => setPendingNavTarget(null)}
-                className="w-full py-3 font-bold uppercase text-xs tracking-widest transition-all active:scale-[0.97]"
-                style={{ color: '#6B7895' }}
+                className="w-full text-gray-500 font-bold uppercase text-xs py-3"
               >
                 Volver al entreno
               </button>
