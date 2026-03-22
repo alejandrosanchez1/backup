@@ -1104,6 +1104,10 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                 if (isCoach) profileData.coach_id = currentUserId
                 const { error: profileError } = await db.from('profiles').upsert(profileData)
                 if (profileError) throw new Error(profileError.message)
+                // Garantizar coach_id aunque un trigger haya creado el perfil antes
+                if (isCoach) {
+                  await db.from('profiles').update({ coach_id: currentUserId }).eq('id', authData.user.id)
+                }
                 toast('Usuario creado correctamente')
                 setShowCreate(false)
                 setNewUser({ full_name: '', email: '', password: '', role: 'user' })
