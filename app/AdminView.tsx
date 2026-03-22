@@ -19,7 +19,7 @@ type Profile = {
   id: string; full_name: string; weight: string; height: string
   age: number; gender: string; role: string; experience_level: string
   training_days: number; injuries: string; diet_style: string; focus_areas: string[]
-  email?: string; created_at?: string; plan?: string; membership_end?: string
+  email?: string; created_at?: string; plan?: string; membership_end?: string; coach_id?: string
 }
 type Meal = { name: string; protein: string[]; carbs: string[]; fat: string[] }
 type RoutineEx = { id: number; exercise_id: string; name: string; sets: number; reps: string; rest_time: number; order: number }
@@ -49,7 +49,9 @@ const btnPrimary: React.CSSProperties = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function AdminView({ supabase }: { supabase: any }) {
+export default function AdminView({ supabase, currentUserId, currentUserRole }: { supabase: any; currentUserId: string; currentUserRole: string }) {
+  const isAdmin = currentUserRole === 'admin'
+  const isCoach = currentUserRole === 'coach'
   const [users, setUsers]               = useState<Profile[]>([])
   const [loading, setLoading]           = useState(true)
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
@@ -86,14 +88,28 @@ export default function AdminView({ supabase }: { supabase: any }) {
   }
 
   // ── Users ────────────────────────────────────────────────────────────────
+  const [coaches, setCoaches] = useState<Profile[]>([])
+
   const loadUsers = async () => {
-    const { data } = await db.from('profiles').select('*')
+    let q = db.from('profiles').select('*')
+    if (isCoach) q = q.eq('coach_id', currentUserId).eq('role', 'user')
+    const { data } = await q
     setUsers(data || [])
     setLoading(false)
   }
-  useEffect(() => { loadUsers() }, [])
+
+  const loadCoaches = async () => {
+    const { data } = await db.from('profiles').select('*').eq('role', 'coach')
+    setCoaches(data || [])
+  }
+
+  useEffect(() => {
+    loadUsers()
+    if (isAdmin) loadCoaches()
+  }, [])
 
   const deleteUser = async (user: Profile) => {
+    if (isCoach && user.coach_id !== currentUserId) return toast('Sin permiso para eliminar este usuario', true)
     if (!confirm(`¿Eliminar a ${user.full_name}? Esta acción no se puede deshacer.`)) return
     try {
       await db.from('routine_exercises').delete().in('routine_id',
@@ -648,8 +664,8 @@ export default function AdminView({ supabase }: { supabase: any }) {
                 </div>
               </div>
             )}
-            {/* ── MEMBRESÍA ── */}
-            {(() => {
+            {/* ── MEMBRESÍA (coach no puede editar membresía de otros coaches, solo de sus alumnos) ── */}
+            {(isAdmin || (isCoach && selectedUser.role === 'user')) && (() => {
               const days = daysLeft(membership.membership_end)
               const isExpired = days !== null && days <= 0
               const isWarning = days !== null && days > 0 && days <= 7
@@ -732,6 +748,50 @@ export default function AdminView({ supabase }: { supabase: any }) {
               )
             })()}
 
+            {/* ── ASIGNAR COACH (solo admin, solo para usuarios tipo user) ── */}
+            {isAdmin && selectedUser.role === 'user' && (
+              <div className="p-4 space-y-3 rounded-[20px]"
+                style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)' }}>
+                <div className="flex items-center gap-2">
+                  <Users size={14} style={{ color:'#F59E0B' }} />
+                  <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#F59E0B' }}>Coach asignado</p>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <button type="button"
+                    onClick={async () => {
+                      await db.from('profiles').update({ coach_id: null }).eq('id', selectedUser.id)
+                      setSelectedUser(prev => prev ? { ...prev, coach_id: undefined } : null)
+                      setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, coach_id: undefined } : u))
+                      toast('Coach desasignado')
+                    }}
+                    className="px-3 py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                    style={!selectedUser.coach_id
+                      ? { background:'linear-gradient(135deg,#F59E0B,#EF4444)', color:'#fff' }
+                      : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                    Sin coach
+                  </button>
+                  {coaches.map(coach => (
+                    <button key={coach.id} type="button"
+                      onClick={async () => {
+                        await db.from('profiles').update({ coach_id: coach.id }).eq('id', selectedUser.id)
+                        setSelectedUser(prev => prev ? { ...prev, coach_id: coach.id } : null)
+                        setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, coach_id: coach.id } : u))
+                        toast(`Asignado a ${coach.full_name}`)
+                      }}
+                      className="px-3 py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                      style={selectedUser.coach_id === coach.id
+                        ? { background:'linear-gradient(135deg,#F59E0B,#EF4444)', color:'#fff' }
+                        : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                      {coach.full_name}
+                    </button>
+                  ))}
+                  {coaches.length === 0 && (
+                    <p className="text-xs" style={{ color:'#6B7895' }}>No hay coaches creados aún</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="p-5 space-y-4" style={card}>
               <div>
                 <label style={lbl}>Nombre completo</label>
@@ -765,12 +825,16 @@ export default function AdminView({ supabase }: { supabase: any }) {
                     <option value="Avanzado">Avanzado</option>
                   </select>
                 </div>
-                <div>
-                  <label style={lbl}>Rol</label>
-                  <select style={inp} value={editProfile.role || 'user'} onChange={e => setEditProfile(p => ({...p, role: e.target.value}))}>
-                    <option value="user">user</option><option value="admin">admin</option>
-                  </select>
-                </div>
+                {isAdmin && (
+                  <div>
+                    <label style={lbl}>Rol</label>
+                    <select style={inp} value={editProfile.role || 'user'} onChange={e => setEditProfile(p => ({...p, role: e.target.value}))}>
+                      <option value="user">user</option>
+                      <option value="coach">coach</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </div>
+                )}
               </div>
               <div>
                 <label style={lbl}>Áreas de enfoque</label>
@@ -912,10 +976,10 @@ export default function AdminView({ supabase }: { supabase: any }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] uppercase font-bold tracking-widest mb-1" style={{ color:'#6B7895' }}>Panel</p>
-          <h1 className="text-3xl font-black uppercase tracking-tight text-white">Administración</h1>
+          <h1 className="text-3xl font-black uppercase tracking-tight text-white">{isCoach ? 'Mis Alumnos' : 'Administración'}</h1>
         </div>
-        <div className="p-3 rounded-2xl" style={{ background:'linear-gradient(135deg,#7C5CFF,#00C2FF)', boxShadow:'0 4px 20px rgba(124,92,255,0.35)' }}>
-          <Shield size={22} className="text-white" />
+        <div className="p-3 rounded-2xl" style={{ background: isCoach ? 'linear-gradient(135deg,#F59E0B,#EF4444)' : 'linear-gradient(135deg,#7C5CFF,#00C2FF)', boxShadow: isCoach ? '0 4px 20px rgba(245,158,11,0.35)' : '0 4px 20px rgba(124,92,255,0.35)' }}>
+          {isCoach ? <Users size={22} className="text-white" /> : <Shield size={22} className="text-white" />}
         </div>
       </div>
 
@@ -931,7 +995,7 @@ export default function AdminView({ supabase }: { supabase: any }) {
           </div>
           <div>
             <p className="text-2xl font-black text-white leading-none">{users.length}</p>
-            <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>Usuarios</p>
+            <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{isCoach ? 'Alumnos' : 'Usuarios'}</p>
           </div>
         </div>
         <button onClick={() => setShowCreate(true)}
@@ -972,6 +1036,11 @@ export default function AdminView({ supabase }: { supabase: any }) {
                     {new Date(user.created_at).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })}
                   </p>
                 )}
+                {isAdmin && user.coach_id && (
+                  <p className="text-[9px] mt-0.5 font-bold" style={{ color:'#F59E0B' }}>
+                    Coach: {coaches.find(c => c.id === user.coach_id)?.full_name || '—'}
+                  </p>
+                )}
               </div>
             </div>
             <ChevronRight size={16} style={{ color:'#6B7895', flexShrink:0 }} />
@@ -1008,20 +1077,22 @@ export default function AdminView({ supabase }: { supabase: any }) {
                     onChange={e => setNewUser(p => ({...p, [field]: e.target.value}))} />
                 </div>
               ))}
-              <div>
-                <label style={lbl}>Rol</label>
-                <div className="flex gap-2">
-                  {['user','admin'].map(r => (
-                    <button key={r} type="button" onClick={() => setNewUser(p => ({...p, role: r}))}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
-                      style={newUser.role===r
-                        ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }
-                        : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
-                      {r}
-                    </button>
-                  ))}
+              {isAdmin && (
+                <div>
+                  <label style={lbl}>Rol</label>
+                  <div className="flex gap-2">
+                    {['user','coach','admin'].map(r => (
+                      <button key={r} type="button" onClick={() => setNewUser(p => ({...p, role: r}))}
+                        className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                        style={newUser.role===r
+                          ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }
+                          : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                        {r}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <button onClick={async () => {
               if (!newUser.email || !newUser.password || !newUser.full_name) return toast('Completa todos los campos', true)
@@ -1029,12 +1100,15 @@ export default function AdminView({ supabase }: { supabase: any }) {
               try {
                 const { data: authData, error: authError } = await db.auth.admin.createUser({ email: newUser.email, password: newUser.password, email_confirm: true })
                 if (authError) throw new Error(authError.message)
-                const { error: profileError } = await db.from('profiles').upsert({ id: authData.user.id, full_name: newUser.full_name, role: newUser.role || 'user', email: newUser.email })
+                const profileData: any = { id: authData.user.id, full_name: newUser.full_name, role: isCoach ? 'user' : (newUser.role || 'user'), email: newUser.email }
+                if (isCoach) profileData.coach_id = currentUserId
+                const { error: profileError } = await db.from('profiles').upsert(profileData)
                 if (profileError) throw new Error(profileError.message)
                 toast('Usuario creado correctamente')
                 setShowCreate(false)
                 setNewUser({ full_name: '', email: '', password: '', role: 'user' })
                 loadUsers()
+                if (isAdmin) loadCoaches()
               } catch (e: any) { toast(e.message || 'Error al crear usuario', true) }
               finally { setCreating(false) }
             }} disabled={creating} style={{ ...btnPrimary, opacity: creating?0.6:1 } as React.CSSProperties} className="transition-all active:scale-[0.97]">

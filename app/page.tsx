@@ -923,7 +923,7 @@ useEffect(() => {
                   <div className="flex items-center gap-1.5 mt-2">
                     <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#00E5A8' }} />
                     <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: '#00E5A8' }}>
-                      {userStats.role === 'admin' ? 'Administrador' : 'Atleta activo'}
+                      {userStats.role === 'admin' ? 'Administrador' : userStats.role === 'coach' ? 'Coach' : 'Atleta activo'}
                     </span>
                     {userStats.role !== 'admin' && (
                       <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-lg"
@@ -1540,7 +1540,7 @@ useEffect(() => {
 
 
           {currentView === 'admin' && (
-          <AdminView supabase={supabase} />
+          <AdminView supabase={supabase} currentUserId={user?.id || ''} currentUserRole={userStats.role} />
         )}
 
           {/* ── EXERCISES LIBRARY ──────────────────────────────────────── */}
@@ -1748,7 +1748,7 @@ useEffect(() => {
         {[
           { view: 'home',      icon: Home,     label: t('home') },
           { view: 'nutrition', icon: Utensils, label: t('nutrition') },
-          ...(userStats.role === 'admin' ? [{ view: 'admin', icon: Settings, label: 'Admin' }] : []),
+          ...(['admin','coach'].includes(userStats.role) ? [{ view: 'admin', icon: Settings, label: userStats.role === 'coach' ? 'Coach' : 'Admin' }] : []),
           { view: 'progress',  icon: User,     label: t('profile') },
         ].map(({ view, icon: Icon, label }) => {
           const active = currentView === view;
