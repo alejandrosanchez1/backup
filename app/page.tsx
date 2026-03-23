@@ -900,7 +900,7 @@ useEffect(() => {
       )}
 
       {/* FIX: nombre de elemento faltante — era "< className=..." */}
-      <div className="flex-1 overflow-hidden pb-28 pt-12 md:pt-10" style={{ background: 'transparent' }}>
+      <div className="flex-1 overflow-y-auto pb-28 pt-12 md:pt-10 h-screen" style={{ background: 'transparent' }}>
         <div key={currentView} className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8" style={{ animation: 'viewEnter 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
 
           {/* ── HOME ───────────────────────────────────────────────────── */}

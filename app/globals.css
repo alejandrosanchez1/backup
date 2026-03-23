@@ -26,6 +26,7 @@ input[type=number] {
 html, body {
   overscroll-behavior: none;
   overflow-x: hidden;
+  min-height: 100vh;
   background-color: #0B1220;
 }
 
