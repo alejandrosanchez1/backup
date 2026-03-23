@@ -1253,7 +1253,7 @@ useEffect(() => {
 
               {/* Tabs */}
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {['general', 'objetivos', 'antropometria', 'rutinas', 'notas', ...(userStats.role === 'coach' ? ['miPerfil'] : [])].map(tab => (
+                {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas', ...(userStats.role === 'coach' ? ['miPerfil'] : [])].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveSettingsTab(tab)}
