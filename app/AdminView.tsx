@@ -88,7 +88,8 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   }
 
   // ── Users ────────────────────────────────────────────────────────────────
-  const [coaches, setCoaches] = useState<Profile[]>([])
+  const [coaches, setCoaches]         = useState<Profile[]>([])
+  const [roleFilter, setRoleFilter]   = useState<'all'|'user'|'coach'>('all')
 
   const loadUsers = async () => {
     let q = db.from('profiles').select('*')
@@ -1095,9 +1096,24 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
         </button>
       </div>
 
+      {/* Role filter (admin only) */}
+      {isAdmin && (
+        <div className="flex gap-2">
+          {(['all','user','coach'] as const).map(f => (
+            <button key={f} onClick={() => setRoleFilter(f)}
+              className="flex-1 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-[0.97]"
+              style={roleFilter === f
+                ? { background:'linear-gradient(135deg,#7C5CFF,#00C2FF)', color:'#fff', boxShadow:'0 4px 14px rgba(124,92,255,0.35)' }
+                : { background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.07)', color:'#6B7895' }}>
+              {f === 'all' ? 'Todos' : f === 'user' ? 'Usuario' : 'Coach'}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* User list */}
       <div className="space-y-3">
-        {users.map((user, idx) => (
+        {users.filter(u => roleFilter === 'all' || u.role === roleFilter).map((user, idx) => (
           <button key={user.id} onClick={() => selectUser(user)}
             className="w-full flex items-center justify-between gap-3 p-4 rounded-[20px] text-left transition-all active:scale-[0.98]"
             style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)', boxShadow:'0 10px 30px rgba(0,0,0,0.3)', animation:`fadeUp 0.4s ease-out ${idx*0.05}s both` } as React.CSSProperties}>
