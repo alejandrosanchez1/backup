@@ -326,34 +326,6 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     return diff
   }
 
-  // ── Coach own profile ─────────────────────────────────────────────────────
-  const [coachProfile, setCoachProfile] = useState<Partial<Profile>>({})
-  const [savingCoach, setSavingCoach]   = useState(false)
-
-  useEffect(() => {
-    if (!isCoach || !currentUserId) return
-    db.from('profiles').select('*').eq('id', currentUserId).single()
-      .then(({ data }) => { if (data) setCoachProfile(data) })
-  }, [isCoach, currentUserId])
-
-  const saveCoachProfile = async () => {
-    if (!currentUserId) return
-    setSavingCoach(true)
-    await db.from('profiles').update({
-      full_name: coachProfile.full_name,
-      weight: coachProfile.weight,
-      height: coachProfile.height,
-      age: coachProfile.age,
-      gender: coachProfile.gender,
-      experience_level: coachProfile.experience_level,
-      training_days: coachProfile.training_days,
-      injuries: coachProfile.injuries,
-      diet_style: coachProfile.diet_style,
-    }).eq('id', currentUserId)
-    setSavingCoach(false)
-    toast('Tu perfil actualizado')
-  }
-
   // ── Profile ───────────────────────────────────────────────────────────────
   const saveProfile = async () => {
     if (!selectedUser) return
@@ -1071,65 +1043,6 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
               )
             })()}
 
-            {/* ── MI CONFIGURACIÓN (perfil propio del coach) ── */}
-            <div className="p-4 space-y-4 rounded-[20px]"
-              style={{ background:'rgba(124,92,255,0.06)', border:'1px solid rgba(124,92,255,0.2)' }}>
-              <div className="flex items-center gap-2">
-                <Shield size={14} style={{ color:'#7C5CFF' }} />
-                <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#7C5CFF' }}>Mi configuración</p>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <label style={lbl}>Nombre completo</label>
-                  <input style={inp} value={coachProfile.full_name || ''}
-                    onChange={e => setCoachProfile(p => ({ ...p, full_name: e.target.value }))} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label:'Peso (kg)',    field:'weight'        },
-                    { label:'Altura (m)',   field:'height'        },
-                    { label:'Edad',         field:'age'           },
-                    { label:'Días entreno', field:'training_days' },
-                  ].map(({ label, field }) => (
-                    <div key={field}>
-                      <label style={lbl}>{label}</label>
-                      <input type="number" style={inp}
-                        value={(coachProfile as any)[field] || ''}
-                        onChange={e => setCoachProfile(p => ({ ...p, [field]: e.target.value }))} />
-                    </div>
-                  ))}
-                  <div>
-                    <label style={lbl}>Género</label>
-                    <select style={inp} value={coachProfile.gender || ''}
-                      onChange={e => setCoachProfile(p => ({ ...p, gender: e.target.value }))}>
-                      <option value="Hombre">Hombre</option>
-                      <option value="Mujer">Mujer</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={lbl}>Nivel</label>
-                    <select style={inp} value={coachProfile.experience_level || ''}
-                      onChange={e => setCoachProfile(p => ({ ...p, experience_level: e.target.value }))}>
-                      <option value="">—</option>
-                      <option value="Principiante">Principiante</option>
-                      <option value="Intermedio">Intermedio</option>
-                      <option value="Avanzado">Avanzado</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label style={lbl}>Notas / Lesiones</label>
-                  <textarea className="resize-none" style={{ ...inp, height:80 } as React.CSSProperties}
-                    value={coachProfile.injuries || ''}
-                    onChange={e => setCoachProfile(p => ({ ...p, injuries: e.target.value }))} />
-                </div>
-              </div>
-              <button onClick={saveCoachProfile} disabled={savingCoach}
-                className="w-full py-3 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
-                style={{ background:'linear-gradient(135deg,#7C5CFF,#00C2FF)', opacity: savingCoach ? 0.6 : 1, boxShadow:'0 6px 20px rgba(124,92,255,0.3)' }}>
-                <Save size={15} /> {savingCoach ? 'Guardando...' : 'Guardar mi perfil'}
-              </button>
-            </div>
           </div>
         )}
       </div>

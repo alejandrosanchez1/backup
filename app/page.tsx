@@ -1238,7 +1238,7 @@ useEffect(() => {
 
               {/* Tabs */}
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {['general', 'objetivos', 'antropometria', 'rutinas'].map(tab => (
+                {['general', 'objetivos', 'antropometria', 'rutinas', ...(userStats.role === 'coach' ? ['miPerfil'] : [])].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveSettingsTab(tab)}
@@ -1248,7 +1248,7 @@ useEffect(() => {
                       : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7895' }
                     }
                   >
-                    {t(tab as any)}
+                    {tab === 'miPerfil' ? 'Mi Perfil' : t(tab as any)}
                   </button>
                 ))}
               </div>
@@ -1434,6 +1434,66 @@ useEffect(() => {
                     ))}
                   </div>
                 )}
+
+              {/* TAB MI PERFIL (solo coach) */}
+              {activeSettingsTab === 'miPerfil' && userStats.role === 'coach' && (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-2 pb-1" style={{ borderBottom: '1px solid rgba(124,92,255,0.2)' }}>
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,92,255,0.15)' }}>
+                      <User size={13} style={{ color: '#7C5CFF' }} />
+                    </div>
+                    <p className="text-[10px] uppercase font-black tracking-widest" style={{ color: '#7C5CFF' }}>Mi perfil de coach</p>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Nombre completo</label>
+                    <input className="w-full rounded-xl p-3 outline-none text-white"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                      value={userStats.name} onChange={e => setUserStats({ ...userStats, name: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Peso (kg)',    key: 'weight',      type: 'number', step: '0.1'  },
+                      { label: 'Altura (m)',   key: 'height',      type: 'number', step: '0.01' },
+                      { label: 'Edad',         key: 'age',         type: 'number', step: '1'    },
+                      { label: 'Días entreno', key: 'trainingDays',type: 'number', step: '1'    },
+                    ].map(({ label, key, type, step }) => (
+                      <div key={key}>
+                        <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>{label}</label>
+                        <input type={type} step={step}
+                          className="w-full rounded-xl p-3 outline-none font-bold text-white"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                          value={(userStats as any)[key]} onChange={e => setUserStats({ ...userStats, [key]: e.target.value })} />
+                      </div>
+                    ))}
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Género</label>
+                      <select className="w-full rounded-xl p-3 outline-none font-bold text-white"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        value={userStats.gender} onChange={e => setUserStats({ ...userStats, gender: e.target.value })}>
+                        <option value="Hombre">Hombre</option>
+                        <option value="Mujer">Mujer</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Nivel</label>
+                      <select className="w-full rounded-xl p-3 outline-none font-bold text-white"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        value={userStats.experienceLevel} onChange={e => setUserStats({ ...userStats, experienceLevel: e.target.value })}>
+                        <option value="">—</option>
+                        <option value="Principiante">Principiante</option>
+                        <option value="Intermedio">Intermedio</option>
+                        <option value="Avanzado">Avanzado</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Notas / Lesiones</label>
+                    <textarea className="w-full rounded-xl p-3 outline-none text-white resize-none"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', height: 90 }}
+                      value={userStats.injuries} onChange={e => setUserStats({ ...userStats, injuries: e.target.value })} />
+                  </div>
+                </div>
+              )}
 
               </div>
             </div>
