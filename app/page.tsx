@@ -460,10 +460,17 @@ useEffect(() => {
         const exerciseConfig = activeRoutine.exercises.find(
           (e: any) => e.id === exerciseId || e.exercise_id === exerciseId
         );
-        const restTime = parseInt(exerciseConfig?.restTime || exerciseConfig?.rest_time) || 60;
-        setRestTimer(restTime);
-        setTotalRestTime(restTime);
-        setIsResting(true);
+        const lastExercise = activeRoutine.exercises[activeRoutine.exercises.length - 1];
+        const isLastExercise = exerciseId === (lastExercise?.id || lastExercise?.exercise_id)
+        const isLastSet = setIndex === (parseInt(exerciseConfig?.sets) || 3) - 1
+        if (isLastExercise && isLastSet) {
+          setShowFinishConfirm(true)
+        } else {
+          const restTime = parseInt(exerciseConfig?.restTime || exerciseConfig?.rest_time) || 60;
+          setRestTimer(restTime);
+          setTotalRestTime(restTime);
+          setIsResting(true);
+        }
       }
       currentSets[setIndex] = { ...currentSets[setIndex], ...newData };
       return { ...prev, [exerciseId]: currentSets };
