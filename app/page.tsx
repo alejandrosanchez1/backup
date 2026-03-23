@@ -1892,7 +1892,6 @@ useEffect(() => {
                       </div>
                     </div>
 
-                    <PlayIcon size={18} fill="#00E5A8" style={{ color: '#00E5A8', flexShrink: 0 }} />
                   </button>
                 ))}
               </div>
