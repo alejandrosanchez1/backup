@@ -55,7 +55,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const [users, setUsers]               = useState<Profile[]>([])
   const [loading, setLoading]           = useState(true)
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
-  const [activeTab, setActiveTab]       = useState<'profile'|'nutrition'|'routines'|'notas'>('profile')
+  const [activeTab, setActiveTab]       = useState<'profile'|'nutrition'|'routines'|'notas'|'config'>('profile')
   const [meals, setMeals]               = useState<Meal[]>([])
   const [routines, setRoutines]         = useState<Routine[]>([])
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null)
@@ -589,10 +589,11 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   // ══════════════════════════════════════════════════════════════════════════
   if (selectedUser) {
     const TABS = [
-      { key: 'profile',   label: 'Perfil'    },
-      { key: 'nutrition', label: 'Nutrición' },
-      { key: 'routines',  label: 'Rutinas'   },
-      { key: 'notas',     label: 'Notas'     },
+      { key: 'profile',   label: 'Perfil'         },
+      { key: 'nutrition', label: 'Nutrición'       },
+      { key: 'routines',  label: 'Rutinas'         },
+      { key: 'notas',     label: 'Notas'           },
+      ...(isCoach ? [{ key: 'config', label: 'Configuración' }] : []),
     ] as const
 
     return (
@@ -633,7 +634,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
           {TABS.map(({ key, label }) => (
-            <button key={key} onClick={() => setActiveTab(key)}
+            <button key={key} onClick={() => setActiveTab(key as any)}
               className="flex-shrink-0 px-4 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
               style={activeTab === key
                 ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff', boxShadow:'0 4px 16px rgba(0,229,168,0.35)' }
@@ -959,6 +960,88 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
             <button onClick={saveProfile} disabled={saving} style={{ ...btnPrimary, opacity: saving?0.6:1 } as React.CSSProperties} className="transition-all active:scale-[0.97]">
               <Save size={16} /> {saving ? 'Guardando...' : 'Guardar Notas'}
             </button>
+          </div>
+        )}
+
+        {/* ── TAB: CONFIGURACIÓN (solo coach) ── */}
+        {activeTab === 'config' && isCoach && (
+          <div className="space-y-4">
+            {(() => {
+              const days = daysLeft(membership.membership_end)
+              const isExpired = days !== null && days <= 0
+              const isWarning = days !== null && days > 0 && days <= 7
+              const isActive  = days !== null && days > 7
+              const statusColor = isActive ? '#00E5A8' : isWarning ? '#F59E0B' : '#ef4444'
+              const statusBg    = isActive ? 'rgba(0,229,168,0.08)' : isWarning ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
+              const statusBorder= isActive ? 'rgba(0,229,168,0.2)'  : isWarning ? 'rgba(245,158,11,0.2)'  : 'rgba(239,68,68,0.2)'
+              return (
+                <div className="p-4 space-y-4 rounded-[20px]"
+                  style={{ background: statusBg, border: `1px solid ${statusBorder}` }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Crown size={16} style={{ color: statusColor }} />
+                      <p className="text-[10px] uppercase font-black tracking-widest" style={{ color: statusColor }}>Membresía</p>
+                    </div>
+                    <div className="px-3 py-1 rounded-xl text-[10px] font-black uppercase"
+                      style={{ background: statusBg, border: `1px solid ${statusBorder}`, color: statusColor }}>
+                      {days === null ? 'Sin fecha' : isExpired ? 'Caducada' : isWarning ? `⚠ ${days}d restantes` : `✓ ${days}d restantes`}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={lbl}>Plan</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {['Básico','Premium','VIP','Élite'].map(p => (
+                        <button key={p} type="button"
+                          onClick={() => setMembership(prev => ({ ...prev, plan: p }))}
+                          className="px-3 py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                          style={membership.plan === p
+                            ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }
+                            : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={lbl}>Fecha de vencimiento</label>
+                    <input type="date"
+                      style={{ ...inp, colorScheme: 'dark' } as React.CSSProperties}
+                      value={membership.membership_end}
+                      onChange={e => setMembership(p => ({ ...p, membership_end: e.target.value }))}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={lbl}>Extender acceso</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[{ label:'+1m', months:1 },{ label:'+3m', months:3 },{ label:'+6m', months:6 },{ label:'+1a', months:12 }].map(({ label, months }) => (
+                        <button key={label} type="button" onClick={() => extendMembership(months)}
+                          className="py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                          style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#A8B3CF' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button type="button"
+                      onClick={() => setMembership(p => ({ ...p, membership_end: new Date(Date.now() - 86400000).toISOString().split('T')[0] }))}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                      style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', color:'#ef4444' }}>
+                      Revocar acceso
+                    </button>
+                    <button type="button" onClick={saveMembership}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase text-white transition-all active:scale-95 flex items-center justify-center gap-1"
+                      style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow:'0 4px 16px rgba(0,229,168,0.3)' }}>
+                      <Save size={13} /> Guardar
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
       </div>
