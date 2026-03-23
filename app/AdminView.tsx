@@ -664,8 +664,8 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                 </div>
               </div>
             )}
-            {/* ── MEMBRESÍA (coach no puede editar membresía de otros coaches, solo de sus alumnos) ── */}
-            {(isAdmin || (isCoach && selectedUser.role === 'user')) && (() => {
+            {/* ── MEMBRESÍA (solo admin) ── */}
+            {isAdmin && (() => {
               const days = daysLeft(membership.membership_end)
               const isExpired = days !== null && days <= 0
               const isWarning = days !== null && days > 0 && days <= 7
