@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { 
-  Search, Dumbbell, Home, Settings, Play as PlayIcon, Plus, 
-  Trophy, X, Save, Trash2, CheckCircle, History, 
+import {
+  Search, Dumbbell, Home, Settings, Play as PlayIcon, Plus,
+  Trophy, X, Save, Trash2, CheckCircle, History,
   Timer, SkipForward, Eye, Activity, Clock, LogOut, User,
   Library, Calendar, Globe, Scale, HeartPulse, ChevronRight,
-  PlusCircle, Utensils, Mail, Lock, Loader2
+  PlusCircle, Utensils, Mail, Lock, Loader2,
+  ArrowLeft, ChevronUp, ChevronDown
 } from 'lucide-react'
 import { Toast } from '@capacitor/toast'
 import React from 'react'
@@ -78,6 +79,15 @@ export default function GymProApp() {
   const restEndRef = useRef<number>(0);
   const [newExData, setNewExData] = useState({ name: '', target: 'chest', gif_url: '' });
   const [isActive, setIsActive] = useState(false);
+
+  // ── Own routine management (settings Rutinas tab) ──────────────────────────
+  const [selectedOwnRoutine, setSelectedOwnRoutine] = useState<any | null>(null)
+  const [ownNewRoutineName, setOwnNewRoutineName]   = useState('')
+  const [ownExSearch, setOwnExSearch]               = useState('')
+  const [ownExResults, setOwnExResults]             = useState<any[]>([])
+  const [selectedOwnEx, setSelectedOwnEx]           = useState<any | null>(null)
+  const [ownExConfig, setOwnExConfig]               = useState({ sets: 3, reps: '10', rest_time: 60 })
+  const [addingOwnEx, setAddingOwnEx]               = useState(false)
 
   const [userStats, setUserStats] = useState({
     name: 'Atleta', age: '25', gender: 'Hombre', weight: '75', height: '1.75', focus: [] as string[],
@@ -294,6 +304,97 @@ useEffect(() => {
       membershipEnd: data.membership_end || '',
     }));
   };
+
+  // ── Own routine exercise management ───────────────────────────────────────
+  const loadOwnRoutineExercises = async (routineId: string) => {
+    const { data: rows } = await supabase
+      .from('routine_exercises')
+      .select('id, sets, reps, rest_time, exercise_id, order')
+      .eq('routine_id', routineId)
+      .order('order', { ascending: true })
+    if (!rows?.length) return []
+    const ids = rows.map((r: any) => r.exercise_id).filter(Boolean)
+    const nameMap: Record<string, string> = {}
+    if (ids.length) {
+      const { data: exs } = await supabase.from('custom_exercises').select('id, name').in('id', ids)
+      ;(exs || []).forEach((e: any) => { nameMap[e.id] = e.name })
+    }
+    return rows.map((re: any) => ({
+      id: re.id, exercise_id: re.exercise_id,
+      name: nameMap[re.exercise_id] || 'Ejercicio',
+      sets: re.sets || 3, reps: re.reps || '10', rest_time: re.rest_time || 60, order: re.order ?? 0,
+    }))
+  }
+
+  const openOwnRoutine = async (routine: any) => {
+    const exercises = await loadOwnRoutineExercises(routine.id)
+    setSelectedOwnRoutine({ ...routine, exercises })
+    setOwnExSearch(''); setOwnExResults([]); setSelectedOwnEx(null)
+    setOwnExConfig({ sets: 3, reps: '10', rest_time: 60 })
+  }
+
+  const refreshOwnRoutine = async () => {
+    if (!selectedOwnRoutine) return
+    const exercises = await loadOwnRoutineExercises(selectedOwnRoutine.id)
+    setSelectedOwnRoutine((prev: any) => prev ? { ...prev, exercises } : null)
+  }
+
+  const searchOwnExercises = async (q: string) => {
+    setOwnExSearch(q); setSelectedOwnEx(null)
+    if (q.trim().length < 2) { setOwnExResults([]); return }
+    const { data } = await supabase.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(10)
+    setOwnExResults(data || [])
+  }
+
+  const addOwnExercise = async () => {
+    if (!selectedOwnRoutine || !selectedOwnEx) return
+    setAddingOwnEx(true)
+    const maxOrder = selectedOwnRoutine.exercises.reduce((m: number, e: any) => Math.max(m, e.order ?? 0), 0)
+    await supabase.from('routine_exercises').insert([{
+      routine_id: selectedOwnRoutine.id,
+      exercise_id: selectedOwnEx.id,
+      sets: ownExConfig.sets,
+      reps: String(ownExConfig.reps),
+      rest_time: ownExConfig.rest_time,
+      order: maxOrder + 1,
+    }])
+    setOwnExSearch(''); setSelectedOwnEx(null); setOwnExResults([])
+    setOwnExConfig({ sets: 3, reps: '10', rest_time: 60 })
+    await refreshOwnRoutine()
+    setAddingOwnEx(false)
+  }
+
+  const moveOwnExercise = async (idx: number, dir: -1 | 1) => {
+    if (!selectedOwnRoutine) return
+    const exs = [...selectedOwnRoutine.exercises]
+    const swapIdx = idx + dir
+    if (swapIdx < 0 || swapIdx >= exs.length) return
+    const a = { ...exs[idx], order: exs[swapIdx].order }
+    const b = { ...exs[swapIdx], order: exs[idx].order }
+    exs[idx] = a; exs[swapIdx] = b
+    exs.sort((x: any, y: any) => x.order - y.order)
+    setSelectedOwnRoutine((prev: any) => prev ? { ...prev, exercises: exs } : null)
+    await Promise.all([
+      supabase.from('routine_exercises').update({ order: a.order }).eq('id', a.id),
+      supabase.from('routine_exercises').update({ order: b.order }).eq('id', b.id),
+    ])
+  }
+
+  const deleteOwnExercise = async (exId: number) => {
+    await supabase.from('routine_exercises').delete().eq('id', exId)
+    setSelectedOwnRoutine((prev: any) => prev ? { ...prev, exercises: prev.exercises.filter((e: any) => e.id !== exId) } : null)
+  }
+
+  const saveOwnExercise = async (ex: any) => {
+    await supabase.from('routine_exercises').update({ sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time }).eq('id', ex.id)
+  }
+
+  const updateOwnLocalEx = (exId: number, field: string, value: any) => {
+    setSelectedOwnRoutine((prev: any) => {
+      if (!prev) return prev
+      return { ...prev, exercises: prev.exercises.map((e: any) => e.id === exId ? { ...e, [field]: value } : e) }
+    })
+  }
 
   const fetchRoutines = async (userId: string) => {
     const { data: rData } = await supabase.from('routines').select('*').eq('user_id', userId);
@@ -1398,55 +1499,211 @@ useEffect(() => {
 
                 {/* TAB RUTINAS */}
                 {activeSettingsTab === 'rutinas' && (
-                  <div className="space-y-3">
-                    <button
-                      onClick={async () => {
-                        const n = prompt('Nombre de la rutina:')
-                        if (n) { await supabase.from('routines').insert([{ name: n, user_id: user.id }]); fetchRoutines(user.id); }
-                      }}
-                      className="w-full p-4 rounded-2xl flex items-center justify-center gap-2 font-black uppercase text-xs transition-all active:scale-95"
-                      style={{ border: '1.5px dashed rgba(0,229,168,0.3)', color: '#00E5A8', background: 'rgba(0,229,168,0.04)' }}
-                    >
-                      <Plus size={18}/> Nueva Rutina
-                    </button>
-                    {routines.map(r => (
-                      <div key={r.id} className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div className="flex justify-between items-center gap-3">
+                  <div className="space-y-4">
+                    {selectedOwnRoutine ? (
+                      /* ── DETALLE DE RUTINA ── */
+                      <div className="space-y-4">
+                        {/* Header rutina */}
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => setSelectedOwnRoutine(null)}
+                            className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95"
+                            style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                            <ArrowLeft size={16} style={{ color:'#A8B3CF' }} />
+                          </button>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-black uppercase text-sm text-white truncate">{r.name}</h3>
-                            <p className="text-[10px] font-bold uppercase mt-0.5" style={{ color: '#00E5A8' }}>{r.exercises?.length || 0} ejercicios</p>
+                            <p className="text-[9px] uppercase font-bold tracking-widest" style={{ color:'#6B7895' }}>Rutina</p>
+                            <h3 className="font-black text-base text-white truncate">{selectedOwnRoutine.name}</h3>
                           </div>
-                          <div className="flex gap-2 shrink-0">
-                            <button
-                              onClick={() => { setShowEditRoutineModal(r.id); setCurrentView('exercises'); }}
-                              className="px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95"
-                              style={{ background: 'rgba(0,194,255,0.1)', border: '1px solid rgba(0,194,255,0.2)', color: '#00C2FF' }}
-                            >
-                              + Añadir
-                            </button>
-                            <button
-                              onClick={() => setShowEditRoutineModal(r.id)}
-                              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95"
-                              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-                            >
-                              <Settings size={15} style={{ color: '#6B7895' }}/>
-                            </button>
-                            <button
-                              onClick={async () => {
-                                if (!confirm(`¿Eliminar "${r.name}"?`)) return;
-                                await supabase.from('routine_exercises').delete().eq('routine_id', r.id);
-                                await supabase.from('routines').delete().eq('id', r.id);
-                                fetchRoutines(user.id);
-                              }}
-                              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95"
-                              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}
-                            >
-                              <Trash2 size={15} style={{ color: '#ef4444' }}/>
-                            </button>
+                          <button onClick={async () => {
+                            if (!confirm(`¿Eliminar "${selectedOwnRoutine.name}"?`)) return
+                            await supabase.from('routine_exercises').delete().eq('routine_id', selectedOwnRoutine.id)
+                            await supabase.from('routines').delete().eq('id', selectedOwnRoutine.id)
+                            setSelectedOwnRoutine(null); fetchRoutines(user.id)
+                          }}
+                            className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95"
+                            style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}>
+                            <Trash2 size={14} style={{ color:'#ef4444' }} />
+                          </button>
+                        </div>
+
+                        {/* Añadir ejercicio */}
+                        <div className="p-4 space-y-3 rounded-2xl" style={{ background:'rgba(0,229,168,0.04)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                          <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
+                          <div className="relative">
+                            <div className="flex items-center gap-2 px-3 rounded-xl" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', display:'flex', padding:'0 12px' }}>
+                              <Search size={13} style={{ color:'#6B7895', flexShrink:0 }} />
+                              <input
+                                className="flex-1 bg-transparent outline-none py-3 text-sm text-white placeholder:text-slate-600"
+                                placeholder="Buscar ejercicio..."
+                                value={ownExSearch}
+                                onChange={e => searchOwnExercises(e.target.value)}
+                              />
+                              {ownExSearch && <button onClick={() => { setOwnExSearch(''); setOwnExResults([]); setSelectedOwnEx(null) }}><X size={13} style={{ color:'#6B7895' }} /></button>}
+                            </div>
+                            {ownExResults.length > 0 && (
+                              <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-2xl overflow-hidden"
+                                style={{ background:'#0f1a2e', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 12px 40px rgba(0,0,0,0.7)', maxHeight:220, overflowY:'auto' }}>
+                                {ownExResults.map((ex: any) => (
+                                  <button key={ex.id} onClick={() => { setSelectedOwnEx(ex); setOwnExSearch(ex.name); setOwnExResults([]) }}
+                                    className="w-full text-left px-4 py-3 transition-all"
+                                    style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
+                                    onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.08)')}
+                                    onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
+                                    <p className="text-sm font-bold text-white">{ex.name}</p>
+                                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target || 'General'}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
+
+                          {selectedOwnEx && (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                                <Dumbbell size={13} style={{ color:'#00E5A8', flexShrink:0 }} />
+                                <p className="text-sm font-bold text-white flex-1">{selectedOwnEx.name}</p>
+                                <button onClick={() => { setSelectedOwnEx(null); setOwnExSearch('') }}><X size={13} style={{ color:'#6B7895' }} /></button>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { label:'Series', field:'sets', type:'number' },
+                                  { label:'Reps',   field:'reps', type:'text'   },
+                                  { label:'Desc.(s)',field:'rest_time', type:'number' },
+                                ].map(({ label, field, type }) => (
+                                  <div key={field}>
+                                    <label className="block text-[9px] uppercase font-bold mb-1" style={{ color:'#6B7895' }}>{label}</label>
+                                    <input type={type}
+                                      className="w-full text-center font-black text-base rounded-xl outline-none"
+                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(0,229,168,0.35)', color:'#00E5A8', padding:'10px 4px' }}
+                                      value={(ownExConfig as any)[field]}
+                                      onChange={e => setOwnExConfig(p => ({ ...p, [field]: type === 'number' ? Number(e.target.value) : e.target.value }))}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <button onClick={addOwnExercise} disabled={addingOwnEx}
+                                className="w-full py-3 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95"
+                                style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', opacity: addingOwnEx ? 0.6 : 1 }}>
+                                <Plus size={15} /> {addingOwnEx ? 'Añadiendo...' : 'Añadir a la rutina'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Lista ejercicios */}
+                        <div className="space-y-3">
+                          <p className="text-[10px] uppercase font-black tracking-widest px-1" style={{ color:'#6B7895' }}>
+                            Ejercicios · {selectedOwnRoutine.exercises?.length || 0}
+                          </p>
+                          {(selectedOwnRoutine.exercises || []).length === 0 && (
+                            <div className="text-center py-10 rounded-2xl" style={{ background:'rgba(18,26,42,0.6)', border:'1px solid rgba(255,255,255,0.05)' }}>
+                              <Dumbbell size={32} className="mx-auto mb-2 opacity-20" style={{ color:'#6B7895' }} />
+                              <p className="text-xs font-bold uppercase" style={{ color:'#6B7895' }}>Sin ejercicios</p>
+                            </div>
+                          )}
+                          {(selectedOwnRoutine.exercises || []).map((ex: any, idx: number) => (
+                            <div key={ex.id} className="rounded-2xl overflow-hidden" style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)' }}>
+                              <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 font-black text-xs"
+                                    style={{ background:'rgba(0,229,168,0.12)', color:'#00E5A8' }}>{idx + 1}</div>
+                                  <p className="font-black text-sm text-white truncate">{ex.name}</p>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0 ml-2">
+                                  <button onClick={() => moveOwnExercise(idx, -1)} disabled={idx === 0}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95"
+                                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', opacity: idx === 0 ? 0.25 : 1 }}>
+                                    <ChevronUp size={12} style={{ color:'#A8B3CF' }} />
+                                  </button>
+                                  <button onClick={() => moveOwnExercise(idx, 1)} disabled={idx === selectedOwnRoutine.exercises.length - 1}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95"
+                                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', opacity: idx === selectedOwnRoutine.exercises.length - 1 ? 0.25 : 1 }}>
+                                    <ChevronDown size={12} style={{ color:'#A8B3CF' }} />
+                                  </button>
+                                  <button onClick={() => deleteOwnExercise(ex.id)}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95"
+                                    style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}>
+                                    <Trash2 size={12} style={{ color:'#ef4444' }} />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 px-4 pb-3">
+                                {[
+                                  { label:'Series',   field:'sets',      type:'number' },
+                                  { label:'Reps',     field:'reps',      type:'text'   },
+                                  { label:'Desc.(s)', field:'rest_time', type:'number' },
+                                ].map(({ label, field, type }) => (
+                                  <div key={field}>
+                                    <label className="block text-[9px] uppercase font-bold mb-1" style={{ color:'#6B7895' }}>{label}</label>
+                                    <input type={type}
+                                      className="w-full text-center font-black text-sm rounded-xl outline-none"
+                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', color:'#fff', padding:'8px 4px' }}
+                                      value={(ex as any)[field] ?? ''}
+                                      onChange={e => updateOwnLocalEx(ex.id, field, type === 'number' ? Number(e.target.value) : e.target.value)}
+                                      onBlur={() => saveOwnExercise(ex)}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    ) : (
+                      /* ── LISTA DE RUTINAS ── */
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <input
+                            className="flex-1 rounded-xl px-4 py-3 outline-none text-white text-sm font-bold"
+                            style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}
+                            placeholder="Nombre de la rutina..."
+                            value={ownNewRoutineName}
+                            onChange={e => setOwnNewRoutineName(e.target.value)}
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter' && ownNewRoutineName.trim()) {
+                                await supabase.from('routines').insert([{ name: ownNewRoutineName.trim(), user_id: user.id }])
+                                setOwnNewRoutineName(''); fetchRoutines(user.id)
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={async () => {
+                              if (!ownNewRoutineName.trim()) return
+                              await supabase.from('routines').insert([{ name: ownNewRoutineName.trim(), user_id: user.id }])
+                              setOwnNewRoutineName(''); fetchRoutines(user.id)
+                            }}
+                            className="px-4 rounded-xl font-black text-white transition-all active:scale-95 shrink-0 flex items-center gap-1"
+                            style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow:'0 4px 16px rgba(0,229,168,0.3)' }}>
+                            <Plus size={18} />
+                          </button>
+                        </div>
+                        {routines.length === 0 && (
+                          <div className="text-center py-10" style={{ color:'#6B7895' }}>
+                            <Dumbbell size={32} className="mx-auto mb-2 opacity-20" />
+                            <p className="text-xs font-bold uppercase">Sin rutinas</p>
+                          </div>
+                        )}
+                        {routines.map((r: any) => (
+                          <button key={r.id} onClick={() => openOwnRoutine(r)}
+                            className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl text-left transition-all active:scale-[0.98]"
+                            style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                                <Dumbbell size={15} style={{ color:'#00E5A8' }} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-black text-sm text-white truncate">{r.name}</p>
+                                <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>
+                                  {r.exercises?.length || 0} ejercicios · Toca para gestionar
+                                </p>
+                              </div>
+                            </div>
+                            <ChevronRight size={15} style={{ color:'#6B7895', flexShrink:0 }} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
