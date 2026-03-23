@@ -1864,9 +1864,10 @@ useEffect(() => {
                 )}
 
                 {routines.map((r, idx) => (
-                  <div
+                  <button
                     key={r.id}
-                    className="p-5 rounded-[20px] flex items-center justify-between gap-4 transition-all active:scale-[0.98] backdrop-blur-[10px]"
+                    onClick={() => { setActiveRoutine(r); setCurrentView('workout'); }}
+                    className="w-full p-5 rounded-[20px] flex items-center gap-4 text-left transition-all active:scale-[0.98] backdrop-blur-[10px]"
                     style={{
                       background: 'rgba(18,26,42,0.9)',
                       border: '1px solid rgba(255,255,255,0.05)',
@@ -1891,16 +1892,8 @@ useEffect(() => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => { setActiveRoutine(r); setCurrentView('workout'); }}
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-lg"
-                        style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 20px rgba(0,229,168,0.4)' }}
-                      >
-                        <PlayIcon size={20} fill="white" className="text-white ml-0.5" />
-                      </button>
-                    </div>
-                  </div>
+                    <PlayIcon size={18} fill="#00E5A8" style={{ color: '#00E5A8', flexShrink: 0 }} />
+                  </button>
                 ))}
               </div>
             </div>
