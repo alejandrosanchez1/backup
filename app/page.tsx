@@ -2074,27 +2074,46 @@ useEffect(() => {
                       {/* Divider */}
                       <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '0 20px' }} />
 
-                      {/* Sets table */}
-                      <div className="p-5 space-y-3">
-                        <div className="grid grid-cols-[28px_1fr_1fr_36px] gap-3 px-1 mb-1">
-                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#6B7895' }}>Set</span>
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: '#6B7895' }}>Peso (kg)</span>
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: '#6B7895' }}>Reps</span>
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-right" style={{ color: '#6B7895' }}>OK</span>
+                      {/* Sin iniciar: resumen de configuración */}
+                      {!isActive && (
+                        <div className="px-5 py-4 flex items-center gap-3">
+                          <span className="px-3 py-1.5 rounded-xl text-xs font-black uppercase" style={{ background:'rgba(255,255,255,0.05)', color:'#6B7895' }}>
+                            {numSets} series
+                          </span>
+                          <span className="px-3 py-1.5 rounded-xl text-xs font-black uppercase" style={{ background:'rgba(255,255,255,0.05)', color:'#6B7895' }}>
+                            {exercise.reps || '10'} reps
+                          </span>
+                          {exercise.restTime || exercise.rest_time ? (
+                            <span className="px-3 py-1.5 rounded-xl text-xs font-black uppercase" style={{ background:'rgba(255,255,255,0.05)', color:'#6B7895' }}>
+                              {exercise.restTime || exercise.rest_time}s descanso
+                            </span>
+                          ) : null}
                         </div>
-                        {Array.from({ length: numSets }).map((_, index) => (
-                          <ExerciseSetRow
-                            key={`set-${exercise.id}-${index}`}
-                            index={index}
-                            set={workoutData[exercise.id]?.[index] || { weight: '', reps: exercise.reps || '10', completed: false }}
-                            onUpdate={(updates: any) => updateSet(exercise.id, index, updates)}
-                            onToggleComplete={() => {
-                              const currentSet = workoutData[exercise.id]?.[index];
-                              updateSet(exercise.id, index, { completed: !currentSet?.completed });
-                            }}
-                          />
-                        ))}
-                      </div>
+                      )}
+
+                      {/* Iniciado: tabla de registro */}
+                      {isActive && (
+                        <div className="p-5 space-y-3">
+                          <div className="grid grid-cols-[28px_1fr_1fr_36px] gap-3 px-1 mb-1">
+                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#6B7895' }}>Set</span>
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: '#6B7895' }}>Peso (kg)</span>
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: '#6B7895' }}>Reps</span>
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-right" style={{ color: '#6B7895' }}>OK</span>
+                          </div>
+                          {Array.from({ length: numSets }).map((_, index) => (
+                            <ExerciseSetRow
+                              key={`set-${exercise.id}-${index}`}
+                              index={index}
+                              set={workoutData[exercise.id]?.[index] || { weight: '', reps: exercise.reps || '10', completed: false }}
+                              onUpdate={(updates: any) => updateSet(exercise.id, index, updates)}
+                              onToggleComplete={() => {
+                                const currentSet = workoutData[exercise.id]?.[index];
+                                updateSet(exercise.id, index, { completed: !currentSet?.completed });
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
