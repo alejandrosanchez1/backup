@@ -1172,6 +1172,21 @@ useEffect(() => {
                 </div>
               </div>
 
+              {/* Configurar perfil — solo admin y coach */}
+              {['admin','coach'].includes(userStats.role) && (
+                <button
+                  onClick={() => { setActiveSettingsTab('general'); handleNavigate('routines') }}
+                  className="w-full py-4 rounded-[20px] flex items-center justify-center gap-3 transition-all active:scale-[0.97]"
+                  style={{ background:'rgba(124,92,255,0.08)', border:'1px solid rgba(124,92,255,0.25)' }}
+                >
+                  <Settings size={18} style={{ color:'#7C5CFF' }} />
+                  <span className="font-black uppercase text-sm tracking-widest" style={{ color:'#7C5CFF' }}>
+                    Configurar mi perfil
+                  </span>
+                  <ChevronRight size={16} style={{ color:'#7C5CFF' }} />
+                </button>
+              )}
+
               {/* Logout */}
               <div className="space-y-3 pt-2">
                 <button
@@ -1224,7 +1239,7 @@ useEffect(() => {
                   >
                     <Settings size={18} style={{ color: '#6B7895' }}/>
                   </button>
-                  {activeSettingsTab !== 'rutinas' && (
+                  {activeSettingsTab !== 'rutinas' && activeSettingsTab !== 'miPerfil' && (
                     <button
                       onClick={saveProfile} disabled={isSaving}
                       className="px-5 py-2.5 rounded-2xl font-black text-xs uppercase text-white flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
@@ -1238,7 +1253,7 @@ useEffect(() => {
 
               {/* Tabs */}
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {['general', 'objetivos', 'antropometria', 'rutinas', ...(userStats.role === 'coach' ? ['miPerfil'] : [])].map(tab => (
+                {['general', 'objetivos', 'antropometria', 'rutinas', 'notas', ...(userStats.role === 'coach' ? ['miPerfil'] : [])].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveSettingsTab(tab)}
@@ -1248,7 +1263,7 @@ useEffect(() => {
                       : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7895' }
                     }
                   >
-                    {tab === 'miPerfil' ? 'Mi Perfil' : t(tab as any)}
+                    {tab === 'miPerfil' ? 'Mi Perfil' : tab === 'notas' ? 'Notas' : t(tab as any)}
                   </button>
                 ))}
               </div>
@@ -1434,6 +1449,32 @@ useEffect(() => {
                     ))}
                   </div>
                 )}
+
+              {/* TAB NOTAS */}
+              {activeSettingsTab === 'notas' && (
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Estilo de dieta</label>
+                    <input
+                      className="w-full rounded-xl p-3 outline-none text-white"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                      value={userStats.dietStyle}
+                      onChange={e => setUserStats({ ...userStats, dietStyle: e.target.value })}
+                      placeholder="Ej: Mediterránea, Cetogénica..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Notas / Lesiones</label>
+                    <textarea
+                      className="w-full rounded-xl p-3 outline-none text-white resize-none"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', height: 120 }}
+                      value={userStats.injuries}
+                      onChange={e => setUserStats({ ...userStats, injuries: e.target.value })}
+                      placeholder="Anota lesiones, restricciones o cualquier observación..."
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* TAB MI PERFIL (solo coach) */}
               {activeSettingsTab === 'miPerfil' && userStats.role === 'coach' && (
