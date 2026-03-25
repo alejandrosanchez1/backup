@@ -242,8 +242,8 @@ export default function GymProApp() {
       fetchProfile(user.id);
       fetchHistory();
     }
+    if (currentView === 'home' || currentView === 'routines' || currentView === 'myRoutines') fetchRoutines(user.id);
     if (currentView === 'progress') fetchBodyStats();
-    if (currentView === 'routines' || currentView === 'myRoutines') fetchRoutines(user.id);
   }, [user, currentView]);
 
   // ── Init workout data when routine selected ───────────────────────────────
@@ -396,17 +396,38 @@ useEffect(() => {
     })
   }
 
+  const mapRoutineExercises = (eData: any[], routineId: string) =>
+    (eData || [])
+      .filter(e => e.routine_id === routineId)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map(re => ({
+        ...(re.custom_exercises || {}),
+        id: re.custom_exercises?.id ?? re.exercise_id,
+        name: re.custom_exercises?.name ?? re.exercise_id ?? 'Ejercicio',
+        routineExerciseId: re.id,
+        sets: re.sets,
+        reps: re.reps,
+        restTime: re.rest_time,
+        rest_time: re.rest_time,
+      }));
+
   const fetchRoutines = async (userId: string) => {
     const { data: rData } = await supabase.from('routines').select('*').eq('user_id', userId);
     if (rData) {
       const { data: eData } = await supabase.from('routine_exercises').select('*, custom_exercises(*)').in('routine_id', rData.map(r => r.id));
-      setRoutines(rData.map(r => ({ 
-        ...r, 
-        exercises: (eData || []).filter(e => e.routine_id === r.id).map(re => ({ 
-          ...re.custom_exercises, routineExerciseId: re.id, sets: re.sets, reps: re.reps, restTime: re.rest_time 
-        })) 
-      })));
+      setRoutines(rData.map(r => ({ ...r, exercises: mapRoutineExercises(eData || [], r.id) })));
     }
+  };
+
+  const startWorkout = async (routine: any) => {
+    const { data: eData } = await supabase
+      .from('routine_exercises')
+      .select('*, custom_exercises(*)')
+      .eq('routine_id', routine.id)
+      .order('order', { ascending: true });
+    const freshExercises = mapRoutineExercises(eData || [], routine.id);
+    setActiveRoutine({ ...routine, exercises: freshExercises });
+    setCurrentView('workout');
   };
 
   const fetchExercises = async (term = '') => {
@@ -900,7 +921,7 @@ useEffect(() => {
       )}
 
       {/* FIX: nombre de elemento faltante — era "< className=..." */}
-      <div className="flex-1 overflow-y-auto pb-28 pt-12 md:pt-10 h-screen" style={{ background: 'transparent' }}>
+      <div className="flex-1 overflow-y-auto pb-28 pt-12 md:pt-10" style={{ background: 'transparent' }}>
         <div key={currentView} className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8" style={{ animation: 'viewEnter 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
 
           {/* ── HOME ───────────────────────────────────────────────────── */}
@@ -1347,7 +1368,7 @@ useEffect(() => {
                   >
                     <Settings size={18} style={{ color: '#6B7895' }}/>
                   </button>
-                  {activeSettingsTab !== 'rutinas' && activeSettingsTab !== 'miPerfil' && (
+                  {activeSettingsTab !== 'rutinas' && (
                     <button
                       onClick={saveProfile} disabled={isSaving}
                       className="px-5 py-2.5 rounded-2xl font-black text-xs uppercase text-white flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
@@ -1361,7 +1382,7 @@ useEffect(() => {
 
               {/* Tabs */}
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas', ...(userStats.role === 'coach' ? ['miPerfil'] : [])].map(tab => (
+                {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas'].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveSettingsTab(tab)}
@@ -1371,7 +1392,7 @@ useEffect(() => {
                       : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7895' }
                     }
                   >
-                    {tab === 'miPerfil' ? 'Mi Perfil' : tab === 'notas' ? 'Notas' : t(tab as any)}
+                    {tab === 'notas' ? 'Notas' : t(tab as any)}
                   </button>
                 ))}
               </div>
@@ -1740,65 +1761,6 @@ useEffect(() => {
                 </div>
               )}
 
-              {/* TAB MI PERFIL (solo coach) */}
-              {activeSettingsTab === 'miPerfil' && userStats.role === 'coach' && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 pb-1" style={{ borderBottom: '1px solid rgba(124,92,255,0.2)' }}>
-                    <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,92,255,0.15)' }}>
-                      <User size={13} style={{ color: '#7C5CFF' }} />
-                    </div>
-                    <p className="text-[10px] uppercase font-black tracking-widest" style={{ color: '#7C5CFF' }}>Mi perfil de coach</p>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Nombre completo</label>
-                    <input className="w-full rounded-xl p-3 outline-none text-white"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-                      value={userStats.name} onChange={e => setUserStats({ ...userStats, name: e.target.value })} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: 'Peso (kg)',    key: 'weight',      type: 'number', step: '0.1'  },
-                      { label: 'Altura (m)',   key: 'height',      type: 'number', step: '0.01' },
-                      { label: 'Edad',         key: 'age',         type: 'number', step: '1'    },
-                      { label: 'Días entreno', key: 'trainingDays',type: 'number', step: '1'    },
-                    ].map(({ label, key, type, step }) => (
-                      <div key={key}>
-                        <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>{label}</label>
-                        <input type={type} step={step}
-                          className="w-full rounded-xl p-3 outline-none font-bold text-white"
-                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-                          value={(userStats as any)[key]} onChange={e => setUserStats({ ...userStats, [key]: e.target.value })} />
-                      </div>
-                    ))}
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Género</label>
-                      <select className="w-full rounded-xl p-3 outline-none font-bold text-white"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-                        value={userStats.gender} onChange={e => setUserStats({ ...userStats, gender: e.target.value })}>
-                        <option value="Hombre">Hombre</option>
-                        <option value="Mujer">Mujer</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Nivel</label>
-                      <select className="w-full rounded-xl p-3 outline-none font-bold text-white"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-                        value={userStats.experienceLevel} onChange={e => setUserStats({ ...userStats, experienceLevel: e.target.value })}>
-                        <option value="">—</option>
-                        <option value="Principiante">Principiante</option>
-                        <option value="Intermedio">Intermedio</option>
-                        <option value="Avanzado">Avanzado</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Notas / Lesiones</label>
-                    <textarea className="w-full rounded-xl p-3 outline-none text-white resize-none"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', height: 90 }}
-                      value={userStats.injuries} onChange={e => setUserStats({ ...userStats, injuries: e.target.value })} />
-                  </div>
-                </div>
-              )}
 
               </div>
             </div>
@@ -1866,7 +1828,7 @@ useEffect(() => {
                 {routines.map((r, idx) => (
                   <button
                     key={r.id}
-                    onClick={() => { setActiveRoutine(r); setCurrentView('workout'); }}
+                    onClick={() => startWorkout(r)}
                     className="w-full p-5 rounded-[20px] flex items-center gap-4 text-left transition-all active:scale-[0.98] backdrop-blur-[10px]"
                     style={{
                       background: 'rgba(18,26,42,0.9)',
