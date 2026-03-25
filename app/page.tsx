@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import {
   Search, Dumbbell, Home, Settings, Play as PlayIcon, Plus,
   Trophy, X, Save, Trash2, CheckCircle, History,
@@ -345,7 +346,7 @@ useEffect(() => {
   const searchOwnExercises = async (q: string) => {
     setOwnExSearch(q); setSelectedOwnEx(null)
     if (q.trim().length < 2) { setOwnExResults([]); return }
-    const { data } = await supabase.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(10)
+    const { data } = await supabaseAdmin.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(10)
     setOwnExResults(data || [])
   }
 
@@ -395,7 +396,7 @@ useEffect(() => {
   const createOwnCustomExercise = async () => {
     if (!ownNewEx.name.trim()) return
     setOwnCreatingEx(true)
-    const { data, error } = await supabase.from('custom_exercises')
+    const { data, error } = await supabaseAdmin.from('custom_exercises')
       .insert([{ name: ownNewEx.name.trim(), target: ownNewEx.target.trim() || 'General' }])
       .select().single()
     setOwnCreatingEx(false)
