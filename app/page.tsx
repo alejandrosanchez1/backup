@@ -88,6 +88,9 @@ export default function GymProApp() {
   const [selectedOwnEx, setSelectedOwnEx]           = useState<any | null>(null)
   const [ownExConfig, setOwnExConfig]               = useState({ sets: 3, reps: '10', rest_time: 60 })
   const [addingOwnEx, setAddingOwnEx]               = useState(false)
+  const [showOwnCreateEx, setShowOwnCreateEx]       = useState(false)
+  const [ownNewEx, setOwnNewEx]                     = useState({ name: '', target: '' })
+  const [ownCreatingEx, setOwnCreatingEx]           = useState(false)
 
   const [userStats, setUserStats] = useState({
     name: 'Atleta', age: '25', gender: 'Hombre', weight: '75', height: '1.75', focus: [] as string[],
@@ -387,6 +390,20 @@ useEffect(() => {
 
   const saveOwnExercise = async (ex: any) => {
     await supabase.from('routine_exercises').update({ sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time }).eq('id', ex.id)
+  }
+
+  const createOwnCustomExercise = async () => {
+    if (!ownNewEx.name.trim()) return
+    setOwnCreatingEx(true)
+    const { data, error } = await supabase.from('custom_exercises')
+      .insert([{ name: ownNewEx.name.trim(), target: ownNewEx.target.trim() || 'General' }])
+      .select().single()
+    setOwnCreatingEx(false)
+    if (error || !data) return
+    setOwnNewEx({ name: '', target: '' })
+    setShowOwnCreateEx(false)
+    setSelectedOwnEx({ id: data.id, name: data.name, target: data.target })
+    setOwnExSearch(data.name)
   }
 
   const updateOwnLocalEx = (exId: number, field: string, value: any) => {
@@ -1556,7 +1573,40 @@ useEffect(() => {
 
                         {/* Añadir ejercicio */}
                         <div className="p-4 space-y-3 rounded-2xl" style={{ background:'rgba(0,229,168,0.04)', border:'1px solid rgba(0,229,168,0.2)' }}>
-                          <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
+                            <button onClick={() => setShowOwnCreateEx(v => !v)}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95"
+                              style={{ background: showOwnCreateEx ? 'rgba(0,229,168,0.15)' : 'rgba(255,255,255,0.05)', border:'1px solid rgba(0,229,168,0.3)', color:'#00E5A8' }}>
+                              <Plus size={11} /> Crear ejercicio
+                            </button>
+                          </div>
+
+                          {/* Panel crear ejercicio nuevo */}
+                          {showOwnCreateEx && (
+                            <div className="p-3 rounded-xl space-y-2" style={{ background:'rgba(0,229,168,0.06)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                              <input
+                                className="w-full rounded-xl px-3 py-2.5 outline-none text-white text-sm"
+                                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}
+                                placeholder="Nombre del ejercicio"
+                                value={ownNewEx.name}
+                                onChange={e => setOwnNewEx(p => ({ ...p, name: e.target.value }))}
+                              />
+                              <input
+                                className="w-full rounded-xl px-3 py-2.5 outline-none text-white text-sm"
+                                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}
+                                placeholder="Músculo objetivo (ej: Pecho)"
+                                value={ownNewEx.target}
+                                onChange={e => setOwnNewEx(p => ({ ...p, target: e.target.value }))}
+                              />
+                              <button onClick={createOwnCustomExercise} disabled={ownCreatingEx || !ownNewEx.name.trim()}
+                                className="w-full py-2.5 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                                style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)' }}>
+                                <Plus size={13} /> {ownCreatingEx ? 'Creando...' : 'Crear y seleccionar'}
+                              </button>
+                            </div>
+                          )}
+
                           <div className="relative">
                             <div className="flex items-center gap-2 px-3 rounded-xl" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', display:'flex', padding:'0 12px' }}>
                               <Search size={13} style={{ color:'#6B7895', flexShrink:0 }} />
