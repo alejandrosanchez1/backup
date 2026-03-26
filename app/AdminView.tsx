@@ -1493,6 +1493,12 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                 if (isCoach) upsertData.coach_id = currentUserId
                 await db.from('profiles').upsert(upsertData, { onConflict: 'id' })
 
+                // 3b. Segundo update para garantizar coach_id si el trigger corrió después del upsert
+                if (isCoach) {
+                  await new Promise(r => setTimeout(r, 500))
+                  await db.from('profiles').update({ coach_id: currentUserId, full_name: newUser.full_name, role }).eq('id', authData.user.id)
+                }
+
                 // 4. Cerrar modal y recargar lista
                 const createdName  = newUser.full_name
                 const createdEmail = newUser.email
