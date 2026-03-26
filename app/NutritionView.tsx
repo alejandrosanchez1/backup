@@ -26,14 +26,19 @@ export default function NutritionView({ userId, supabase }: { userId: string | u
   const [water, setWater] = useState(0)
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId) {
+      setLoading(false)
+      return
+    }
     supabase
       .from('nutrition_plans')
       .select('*')
       .eq('user_id', userId)
-      .single()
-      .then(({ data }: any) => {
-        setPlan(data)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data, error }: any) => {
+        if (error) console.error('nutrition_plans error:', JSON.stringify(error))
+        setPlan(data?.[0] ?? null)
         setLoading(false)
       })
   }, [userId])
