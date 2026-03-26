@@ -68,10 +68,12 @@ export async function fetchExercises(params?: {
   }
 
   const json = await res.json();
+  // The search endpoint wraps results in { exercises: [...] } while other endpoints return arrays directly
+  const data: ExerciseDBExercise[] = Array.isArray(json) ? json : json?.exercises || json?.data || []
   return {
     success: true,
-    data: json,
-    metadata: { totalExercises: json.length }
+    data,
+    metadata: { totalExercises: data.length }
   };
 }
 

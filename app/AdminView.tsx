@@ -272,16 +272,19 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
 
     const customEx = customExRes.status === 'fulfilled' ? customExRes.value.data || [] : []
     const allEx    = allExRes.status === 'fulfilled'    ? allExRes.value.data || []    : []
-    const apiEx    = apiRes.status === 'fulfilled'
-      ? apiRes.value.data.map((e: any) => ({
-          id: e.exerciseId,
-          name: e.name,
-          target: e.targetMuscles?.[0] || '',
-          gifUrl: e.gifUrl,
-          _fromApi: true,
-          _apiData: e,
-        }))
-      : []
+    const apiEx = (() => {
+      if (apiRes.status !== 'fulfilled') return []
+      const raw = apiRes.value.data
+      const list: any[] = Array.isArray(raw) ? raw : (raw as any)?.exercises || (raw as any)?.data || []
+      return list.map((e: any) => ({
+        id: e.exerciseId,
+        name: e.name,
+        target: e.targetMuscles?.[0] || '',
+        gifUrl: e.gifUrl,
+        _fromApi: true,
+        _apiData: e,
+      }))
+    })()
 
     setExResults([...customEx, ...allEx, ...apiEx])
   }
