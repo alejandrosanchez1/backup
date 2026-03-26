@@ -21,6 +21,11 @@ type Profile = {
   age: number; gender: string; role: string; experience_level: string
   training_days: number; injuries: string; diet_style: string; focus_areas: string[]
   email?: string; created_at?: string; plan?: string; membership_end?: string; coach_id?: string
+  measurements?: {
+    diameters?: Record<string, string>
+    skinfolds?: Record<string, string>
+    perimeters?: Record<string, string>
+  }
 }
 type Meal = { name: string; protein: string[]; carbs: string[]; fat: string[] }
 type RoutineEx = { id: number; exercise_id: string; name: string; sets: number; reps: string; rest_time: number; order: number }
@@ -381,6 +386,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
       age: editProfile.age, gender: editProfile.gender, experience_level: editProfile.experience_level,
       training_days: editProfile.training_days, injuries: editProfile.injuries,
       diet_style: editProfile.diet_style, focus_areas: editProfile.focus_areas,
+      measurements: editProfile.measurements || null,
     }).eq('id', selectedUser.id)
     setSaving(false)
     error ? toast(error.message, true) : toast('Perfil guardado')
@@ -634,6 +640,144 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   // USER DETAIL VIEW
   // ══════════════════════════════════════════════════════════════════════════
   if (selectedUser) {
+    // ── Vista simplificada para cuando admin selecciona un coach ──────────
+    if (isAdmin && selectedUser.role === 'coach') {
+      const coachUsers = users.filter(u => u.coach_id === selectedUser.id)
+      const days = daysLeft(selectedUser.membership_end)
+      const isExpired = days !== null && days <= 0
+      const isWarning = days !== null && days > 0 && days <= 7
+      const isActive  = days !== null && days > 7
+      const statusColor  = isActive ? '#00E5A8' : isWarning ? '#F59E0B' : '#ef4444'
+      const statusBg     = isActive ? 'rgba(0,229,168,0.08)' : isWarning ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
+      const statusBorder = isActive ? 'rgba(0,229,168,0.2)'  : isWarning ? 'rgba(245,158,11,0.2)'  : 'rgba(239,68,68,0.2)'
+
+      return (
+        <div className="space-y-5 pb-28">
+          <style>{`@keyframes fadeUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSelectedUser(null)}
+              className="w-10 h-10 flex items-center justify-center rounded-2xl transition-all active:scale-95"
+              style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+              <ArrowLeft size={18} style={{ color:'#A8B3CF' }} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-black uppercase text-white break-words">{selectedUser.full_name}</h1>
+              <p className="text-[10px] uppercase font-bold" style={{ color:'#F59E0B' }}>Coach · {selectedUser.email || ''}</p>
+            </div>
+            <button onClick={() => deleteUser(selectedUser)}
+              className="w-10 h-10 flex items-center justify-center rounded-2xl transition-all active:scale-95 shrink-0"
+              style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)' }}>
+              <UserX size={16} style={{ color:'#ef4444' }} />
+            </button>
+          </div>
+
+          {success && <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.25)', color:'#00E5A8' }}>✓ {success}</div>}
+          {error   && <div className="px-4 py-3 rounded-2xl text-sm font-bold text-center" style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)', color:'#ef4444' }}>✕ {error}</div>}
+
+          {/* Membresía */}
+          <div className="p-4 space-y-4 rounded-[20px]" style={{ background: statusBg, border: `1px solid ${statusBorder}` }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Crown size={16} style={{ color: statusColor }} />
+                <p className="text-[10px] uppercase font-black tracking-widest" style={{ color: statusColor }}>Membresía</p>
+              </div>
+              <div className="px-3 py-1 rounded-xl text-[10px] font-black uppercase"
+                style={{ background: statusBg, border: `1px solid ${statusBorder}`, color: statusColor }}>
+                {days === null ? 'Sin fecha' : isExpired ? 'Caducada' : isWarning ? `⚠ ${days}d restantes` : `✓ ${days}d restantes`}
+              </div>
+            </div>
+            <div>
+              <label style={lbl}>Plan</label>
+              <div className="flex gap-2 flex-wrap">
+                {['Básico','Premium','VIP','Élite'].map(p => (
+                  <button key={p} type="button"
+                    onClick={() => setMembership(prev => ({ ...prev, plan: p }))}
+                    className="px-3 py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                    style={membership.plan === p
+                      ? { background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }
+                      : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={lbl}>Fecha de vencimiento</label>
+              <input type="date" style={{ ...inp, colorScheme:'dark' } as React.CSSProperties}
+                value={membership.membership_end}
+                onChange={e => setMembership(p => ({ ...p, membership_end: e.target.value }))} />
+            </div>
+            <div>
+              <label style={lbl}>Extender acceso</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[{ label:'+1m', months:1 },{ label:'+3m', months:3 },{ label:'+6m', months:6 },{ label:'+1a', months:12 }].map(({ label, months }) => (
+                  <button key={label} type="button" onClick={() => extendMembership(months)}
+                    className="py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                    style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#A8B3CF' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="button"
+                onClick={() => setMembership(p => ({ ...p, membership_end: new Date(Date.now() - 86400000).toISOString().split('T')[0] }))}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
+                style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', color:'#ef4444' }}>
+                Revocar acceso
+              </button>
+              <button type="button" onClick={saveMembership}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase text-white transition-all active:scale-95 flex items-center justify-center gap-1"
+                style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow:'0 4px 16px rgba(0,229,168,0.3)' }}>
+                <Save size={13} /> Guardar
+              </button>
+            </div>
+          </div>
+
+          {/* Usuarios del coach */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <Users size={14} style={{ color:'#F59E0B' }} />
+              <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#F59E0B' }}>
+                Alumnos asignados ({coachUsers.length})
+              </p>
+            </div>
+            {coachUsers.length === 0 ? (
+              <div className="text-center py-8 rounded-[20px]" style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)' }}>
+                <p className="text-sm font-bold uppercase" style={{ color:'#6B7895' }}>Sin alumnos asignados</p>
+              </div>
+            ) : (
+              coachUsers.map((u, idx) => (
+                <div key={u.id}
+                  className="flex items-center gap-3 p-4 rounded-[20px]"
+                  style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)', animation:`fadeUp 0.3s ease-out ${idx*0.05}s both` } as React.CSSProperties}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-sm"
+                    style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.2)', color:'#F59E0B' }}>
+                    {(u.full_name||'?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-black text-sm text-white truncate">{u.full_name}</p>
+                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>
+                      {u.gender} · {u.age} años · {u.weight}kg
+                    </p>
+                  </div>
+                  {u.membership_end && (
+                    <div className="text-right shrink-0">
+                      <p className="text-[9px] uppercase font-black" style={{ color: daysLeft(u.membership_end) !== null && daysLeft(u.membership_end)! <= 0 ? '#ef4444' : '#00E5A8' }}>
+                        {daysLeft(u.membership_end) !== null && daysLeft(u.membership_end)! <= 0 ? 'Caducada' : `${daysLeft(u.membership_end)}d`}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )
+    }
+
     const TABS = [
       { key: 'profile',   label: 'Perfil'         },
       { key: 'nutrition', label: 'Nutrición'       },
@@ -901,6 +1045,41 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                 </div>
               </div>
             </div>
+            {/* ── MEDIDAS CINEANTROPOMÉTRICAS ── */}
+            <div className="p-5 space-y-5" style={card}>
+              <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Medidas Cineantropométricas</p>
+
+              {([
+                { title: 'Diámetros (cm)', key: 'diameters', fields: ['humeral','radiocubital','femoral'] },
+                { title: 'Pliegues (mm)',  key: 'skinfolds',  fields: ['biceps','triceps','subscapular','suprailiaco','abdominal','muslo','pierna','pectoral'] },
+                { title: 'Perímetros (cm)',key: 'perimeters', fields: ['thorax','abdomen','cadera','bicepsR','bicepsC','muslo','pantorrilla'] },
+              ] as const).map(({ title, key, fields }) => (
+                <div key={key}>
+                  <p className="text-[9px] uppercase font-black tracking-widest mb-3" style={{ color:'#6B7895', borderBottom:'1px solid rgba(255,255,255,0.05)', paddingBottom:6 }}>{title}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {fields.map(f => (
+                      <div key={f} className="flex items-center justify-between gap-2">
+                        <span className="text-xs capitalize" style={{ color:'#A8B3CF' }}>{f}</span>
+                        <input
+                          type="number"
+                          className="w-20 rounded-lg p-1.5 text-center text-xs font-bold text-white outline-none"
+                          style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}
+                          value={(editProfile.measurements as any)?.[key]?.[f] || ''}
+                          onChange={e => setEditProfile(prev => ({
+                            ...prev,
+                            measurements: {
+                              ...prev.measurements,
+                              [key]: { ...(prev.measurements as any)?.[key], [f]: e.target.value }
+                            }
+                          }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <button onClick={saveProfile} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 } as React.CSSProperties} className="transition-all active:scale-[0.97]">
               <Save size={16} /> {saving ? 'Guardando...' : 'Guardar Perfil'}
             </button>
@@ -1301,21 +1480,35 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
               if (!newUser.email || !newUser.password || !newUser.full_name) return toast('Completa todos los campos', true)
               setCreating(true)
               try {
+                // 1. Crear usuario en Auth
                 const { data: authData, error: authError } = await db.auth.admin.createUser({ email: newUser.email, password: newUser.password, email_confirm: true })
                 if (authError) throw new Error(authError.message)
-                const profileData: any = { id: authData.user.id, full_name: newUser.full_name, role: isCoach ? 'user' : (newUser.role || 'user'), email: newUser.email }
-                if (isCoach) profileData.coach_id = currentUserId
-                const { error: profileError } = await db.from('profiles').upsert(profileData)
-                if (profileError) throw new Error(profileError.message)
-                // Garantizar coach_id aunque un trigger haya creado el perfil antes
-                if (isCoach) {
-                  await db.from('profiles').update({ coach_id: currentUserId }).eq('id', authData.user.id)
-                }
-                toast('Usuario creado correctamente')
+
+                // 2. Esperar a que el trigger de Supabase cree el perfil vacío
+                await new Promise(r => setTimeout(r, 800))
+
+                // 3. Upsert del perfil — funciona tanto si el trigger ya creó la fila como si no
+                const role = isCoach ? 'user' : (newUser.role || 'user')
+                const upsertData: any = { id: authData.user.id, full_name: newUser.full_name, email: newUser.email, role }
+                if (isCoach) upsertData.coach_id = currentUserId
+                await db.from('profiles').upsert(upsertData, { onConflict: 'id' })
+
+                // 4. Cerrar modal y recargar lista
+                const createdName  = newUser.full_name
+                const createdEmail = newUser.email
+                const createdRole  = isCoach ? 'user' : (newUser.role || 'user')
                 setShowCreate(false)
                 setNewUser({ full_name: '', email: '', password: '', role: 'user' })
-                loadUsers()
+                await loadUsers()
                 if (isAdmin) loadCoaches()
+
+                // 5. Navegar al perfil del nuevo usuario
+                const { data: newProfile } = await db.from('profiles').select('*').eq('id', authData.user.id).single()
+                if (newProfile) {
+                  toast(`✓ ${createdName} creado`)
+                  // Forzar nombre/email en caso de que el trigger haya dejado el perfil vacío
+                  selectUser({ ...newProfile, full_name: newProfile.full_name || createdName, email: newProfile.email || createdEmail, role: newProfile.role || createdRole })
+                }
               } catch (e: any) { toast(e.message || 'Error al crear usuario', true) }
               finally { setCreating(false) }
             }} disabled={creating} style={{ ...btnPrimary, opacity: creating?0.6:1 } as React.CSSProperties} className="transition-all active:scale-[0.97]">
