@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   X, Save, Trash2, Shield, Users, Plus, UserPlus,
   Dumbbell, ChevronRight, Search, Check, ArrowLeft,
-  Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown
+  Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown, Upload, Image
 } from 'lucide-react'
 import { exercisesData } from '@/lib/exercises-data'
 
@@ -82,6 +82,11 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const [creatingEx, setCreatingEx]         = useState(false)
   const searchRef                           = useRef<HTMLInputElement>(null)
 
+  // ── Coach branding ────────────────────────────────────────────────────────
+  const [coachLogo, setCoachLogo]         = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const logoInputRef                      = useRef<HTMLInputElement>(null)
+
   // ── Helpers ──────────────────────────────────────────────────────────────
   const toast = (msg: string, isError = false) => {
     if (isError) { setError(msg); setTimeout(() => setError(''), 3000) }
@@ -90,7 +95,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
 
   // ── Users ────────────────────────────────────────────────────────────────
   const [coaches, setCoaches]         = useState<Profile[]>([])
-  const [roleFilter, setRoleFilter]   = useState<'all'|'user'|'coach'>('all')
+  const [roleFilter, setRoleFilter]   = useState<'all'|'user'|'coach'|'mine'>('all')
 
   const loadUsers = async () => {
     let q = db.from('profiles').select('*')
@@ -101,14 +106,41 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   }
 
   const loadCoaches = async () => {
-    const { data } = await db.from('profiles').select('*').eq('role', 'coach')
+    const { data } = await db.from('profiles').select('*').in('role', ['coach', 'admin'])
     setCoaches(data || [])
   }
 
   useEffect(() => {
     loadUsers()
     if (isAdmin) loadCoaches()
+    if (isCoach || isAdmin) loadCoachLogo()
   }, [])
+
+  const loadCoachLogo = async () => {
+    const { data } = await db.from('profiles').select('logo_url').eq('id', currentUserId).single()
+    if (data?.logo_url) setCoachLogo(data.logo_url)
+  }
+
+  const uploadLogo = async (file: File) => {
+    if (!file.type.startsWith('image/')) return toast('Solo se permiten imágenes', true)
+    setLogoUploading(true)
+    const ext = file.name.split('.').pop()
+    const path = `${currentUserId}/logo.${ext}`
+    const { error: uploadError } = await db.storage.from('coach-logos').upload(path, file, { upsert: true })
+    if (uploadError) { toast(uploadError.message, true); setLogoUploading(false); return }
+    const { data } = db.storage.from('coach-logos').getPublicUrl(path)
+    const url = data.publicUrl
+    await db.from('profiles').update({ logo_url: url }).eq('id', currentUserId)
+    setCoachLogo(url)
+    toast('Logo actualizado')
+    setLogoUploading(false)
+  }
+
+  const removeLogo = async () => {
+    await db.from('profiles').update({ logo_url: null }).eq('id', currentUserId)
+    setCoachLogo(null)
+    toast('Logo eliminado')
+  }
 
   const deleteUser = async (user: Profile) => {
     if (isCoach && user.coach_id !== currentUserId) return toast('Sin permiso para eliminar este usuario', true)
@@ -1109,16 +1141,70 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
         </button>
       </div>
 
+      {/* Coach branding */}
+      {(isCoach || isAdmin) && (
+        <div className="p-4 rounded-[20px] space-y-3" style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)', boxShadow:'0 10px 30px rgba(0,0,0,0.4)' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#6B7895' }}>Mi Marca</p>
+              <p className="text-sm font-bold text-white">Logo como marca de agua</p>
+            </div>
+            {coachLogo && (
+              <button onClick={removeLogo} className="p-2 rounded-xl transition-all active:scale-95" style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)' }}>
+                <X size={14} style={{ color:'#ef4444' }} />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden shrink-0"
+              style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
+              {coachLogo
+                ? <img src={coachLogo} alt="Logo" className="w-full h-full object-contain p-1" />
+                : <Image size={28} style={{ color:'#6B7895' }} />
+              }
+            </div>
+            <div className="flex-1 space-y-2">
+              <p className="text-xs" style={{ color:'#6B7895' }}>
+                Aparecerá como marca de agua en el inicio de tus alumnos. Usa PNG con fondo transparente para mejor resultado.
+              </p>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f) }}
+              />
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoUploading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95 disabled:opacity-50"
+                style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', color:'#fff' }}>
+                <Upload size={13} />
+                {logoUploading ? 'Subiendo...' : coachLogo ? 'Cambiar logo' : 'Subir logo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Role filter (admin only) */}
       {isAdmin && (
-        <div className="flex gap-2">
-          {(['all','user','coach'] as const).map(f => (
-            <button key={f} onClick={() => setRoleFilter(f)}
+        <div className="flex gap-2 flex-wrap">
+          {([
+            { key: 'all',   label: 'Todos' },
+            { key: 'mine',  label: 'Mis Alumnos' },
+            { key: 'user',  label: 'Usuarios' },
+            { key: 'coach', label: 'Coaches' },
+          ] as const).map(f => (
+            <button key={f.key} onClick={() => setRoleFilter(f.key)}
               className="flex-1 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-[0.97]"
-              style={roleFilter === f
-                ? { background:'linear-gradient(135deg,#7C5CFF,#00C2FF)', color:'#fff', boxShadow:'0 4px 14px rgba(124,92,255,0.35)' }
+              style={roleFilter === f.key
+                ? f.key === 'mine'
+                  ? { background:'linear-gradient(135deg,#F59E0B,#EF4444)', color:'#fff', boxShadow:'0 4px 14px rgba(245,158,11,0.35)' }
+                  : { background:'linear-gradient(135deg,#7C5CFF,#00C2FF)', color:'#fff', boxShadow:'0 4px 14px rgba(124,92,255,0.35)' }
                 : { background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.07)', color:'#6B7895' }}>
-              {f === 'all' ? 'Todos' : f === 'user' ? 'Usuario' : 'Coach'}
+              {f.label}
             </button>
           ))}
         </div>
@@ -1126,7 +1212,11 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
 
       {/* User list */}
       <div className="space-y-3">
-        {users.filter(u => roleFilter === 'all' || u.role === roleFilter).map((user, idx) => (
+        {users.filter(u => {
+          if (roleFilter === 'all') return true
+          if (roleFilter === 'mine') return u.coach_id === currentUserId
+          return u.role === roleFilter
+        }).map((user, idx) => (
           <button key={user.id} onClick={() => selectUser(user)}
             className="w-full flex items-center justify-between gap-3 p-4 rounded-[20px] text-left transition-all active:scale-[0.98]"
             style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)', boxShadow:'0 10px 30px rgba(0,0,0,0.3)', animation:`fadeUp 0.4s ease-out ${idx*0.05}s both` } as React.CSSProperties}>

@@ -58,15 +58,14 @@ async function importExercises() {
       const batch = exercises.slice(i, i + batchSize).map(ex => ({
         name: ex.name,
         target: ex.target,
-        user_id: null, // null significa que es un ejercicio público/global
-        gif_url: ex.gifUrl,
+        bodyPart: ex.bodyPart || ex.target,
+        gifUrl: ex.gifUrl,
         equipment: ex.equipment,
-        description: `Ejercicio de nivel profesional para trabajar ${TRANSLATIONS[ex.target] || ex.target} utilizando ${ex.equipment}.`,
-        instructions: ex.instructions ? ex.instructions.join('\n') : 'Sin instrucciones disponibles.',
-        common_mistakes: '• No controlar la respiración.\n• Realizar el movimiento con impulso.\n• Mala alineación de la columna.'
+        instructions: ex.instructions || [],
+        secondary_muscles: ex.secondaryMuscles || [],
       }));
 
-      const { error } = await supabase.from('all_exercises').insert(batch);
+      const { error } = await supabase.from('exercises_library').insert(batch);
 
       if (error) {
         console.error(`❌ Error en el lote ${i/batchSize + 1}:`, error.message);

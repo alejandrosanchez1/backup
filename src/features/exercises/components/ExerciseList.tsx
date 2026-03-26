@@ -33,13 +33,23 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
             className="flex items-center p-3 bg-slate-800/40 rounded-2xl border border-slate-700/50 shadow-sm hover:bg-slate-800/60 transition-all"
           >
             {/* Miniatura del GIF */}
-            <div className="w-16 h-16 bg-slate-700 rounded-xl overflow-hidden flex-shrink-0 border border-slate-600">
-              <img 
-                src={exercise.gif_url} 
-                alt={exercise.name} 
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
+            <div className="w-16 h-16 bg-slate-700 rounded-xl overflow-hidden flex-shrink-0 border border-slate-600 flex items-center justify-center">
+              {(exercise.gifUrl || exercise.gif_url) ? (
+                <img
+                  src={exercise.gifUrl || exercise.gif_url}
+                  alt={exercise.name}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    target.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <span className={`text-slate-400 text-xs text-center px-1 ${(exercise.gifUrl || exercise.gif_url) ? 'hidden' : ''}`}>
+                {exercise.name.charAt(0).toUpperCase()}
+              </span>
             </div>
 
             {/* Información del Ejercicio */}

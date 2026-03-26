@@ -1,6 +1,6 @@
 {
-    "name": "GymPro App",
-    "short_name": "GymApp",
+    "name": "My GymPro",
+    "short_name": "MyGymPro",
     "description": "Mi entrenador personal de gimnasio",
     "start_url": "/",
     "display": "standalone",

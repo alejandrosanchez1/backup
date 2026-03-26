@@ -67,6 +67,7 @@ export default function GymProApp() {
   const [showEditRoutineModal, setShowEditRoutineModal] = useState<number | null>(null);
   const [showCreateExModal, setShowCreateExModal] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [coachLogo, setCoachLogo] = useState<string | null>(null);
   const [routines, setRoutines] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [bodyStatsHistory, setBodyStatsHistory] = useState<any[]>([]);
@@ -308,6 +309,10 @@ useEffect(() => {
       plan: data.plan || 'Básico',
       membershipEnd: data.membership_end || '',
     }));
+    if (data.coach_id) {
+      const { data: coach } = await supabaseAdmin.from('profiles').select('logo_url').eq('id', data.coach_id).single();
+      setCoachLogo(coach?.logo_url || null);
+    }
   };
 
   // ── Own routine exercise management ───────────────────────────────────────
@@ -798,7 +803,7 @@ useEffect(() => {
             <div className="p-4 rounded-2xl w-fit mx-auto" style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 8px 30px rgba(0,229,168,0.35)' }}>
               <Dumbbell size={40} className="text-white" />
             </div>
-            <h1 className="text-3xl font-black uppercase text-white tracking-tight truncate">Gym<span style={{ color: '#00E5A8' }}>Pro</span></h1>
+            <h1 className="text-3xl font-black uppercase text-white tracking-tight truncate">My Gym<span style={{ color: '#00E5A8' }}>Pro</span></h1>
             <p className="text-sm" style={{ color: '#A8B3CF' }}>Tu compañero de entrenamiento</p>
           </div>
 
@@ -969,7 +974,7 @@ useEffect(() => {
               style={{ animation: 'textSlideUp 0.55s ease-out 0.45s both' }}
             >
               <h1 className="text-6xl font-black uppercase text-white tracking-tight">
-                Gym<span style={{ color: '#00E5A8' }}>Pro</span>
+                My Gym<span style={{ color: '#00E5A8' }}>Pro</span>
               </h1>
               <p className="text-sm tracking-[0.25em] uppercase font-bold mt-1" style={{ color: '#A8B3CF' }}>
                 Tu compañero de entrenamiento
@@ -989,9 +994,18 @@ useEffect(() => {
         </div>
       )}
 
-      {/* FIX: nombre de elemento faltante — era "< className=..." */}
+      {/* ── TOP HEADER ───────────────────────────────────────────── */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-center px-4"
+        style={{ background: 'rgba(11,18,32,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        {coachLogo
+          ? <img src={coachLogo} alt="Logo" className="h-8 w-auto object-contain" />
+          : <span className="text-sm font-black uppercase tracking-widest" style={{ color: '#00E5A8' }}>MY GYMPRO</span>
+        }
+      </div>
+
       <div className="flex-1 overflow-y-auto pb-28 pt-12 md:pt-10" style={{ background: 'transparent' }}>
         <div key={currentView} className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8" style={{ animation: 'viewEnter 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
+
 
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
