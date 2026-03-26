@@ -854,6 +854,30 @@ useEffect(() => {
     );
   }
 
+  // ── Membership gate (solo usuarios regulares) ────────────────────────────
+  if (userStats.role === 'user' && userStats.membershipEnd) {
+    const daysLeft = Math.ceil((new Date(userStats.membershipEnd).getTime() - Date.now()) / 86400000);
+    if (daysLeft <= 0) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-white" style={{ background: '#0B1220' }}>
+          <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <span style={{ fontSize: 40 }}>🔒</span>
+          </div>
+          <h1 className="text-2xl font-black uppercase tracking-tight mb-2" style={{ color: '#ef4444' }}>Acceso Restringido</h1>
+          <p className="text-center text-sm font-medium mb-1" style={{ color: '#A8B3CF' }}>Tu membresía ha caducado.</p>
+          <p className="text-center text-sm mb-8" style={{ color: '#6B7895' }}>Contacta con tu entrenador para renovarla.</p>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }}
+            className="px-8 py-3 rounded-2xl font-black text-sm uppercase tracking-widest"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      );
+    }
+  }
+
   // ── Main app ──────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen text-white overflow-hidden font-sans relative" style={{ background: 'transparent' }}>
@@ -1427,7 +1451,7 @@ useEffect(() => {
 
               {/* Tabs */}
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas'].map(tab => (
+                {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas', ...(userStats.role === 'coach' ? ['nutricion'] : [])].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveSettingsTab(tab)}
@@ -1812,6 +1836,11 @@ useEffect(() => {
                     )}
                   </div>
                 )}
+
+              {/* TAB NUTRICION (coach) */}
+              {activeSettingsTab === 'nutricion' && (
+                <NutritionView userId={user?.id} supabase={supabase} />
+              )}
 
               {/* TAB NOTAS */}
               {activeSettingsTab === 'notas' && (
