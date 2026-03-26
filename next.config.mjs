@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  images: { unoptimized: true },
-  // 👇 AÑADE ESTO PARA SALTAR ERRORES TEMPORALMENTE
+  images: {
+    unoptimized: true,
+    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
