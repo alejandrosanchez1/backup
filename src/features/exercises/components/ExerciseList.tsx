@@ -101,8 +101,8 @@ export default function ExerciseList({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 pb-20">
         {filteredExercises.map((exercise) => (
           <div 
-            key={exercise.id} 
-            className="flex items-center p-3 bg-slate-800/40 rounded-2xl border border-slate-700/50 shadow-sm hover:bg-slate-800/60 transition-all"
+            key={exercise.exerciseId} 
+            className="flex items-center p-3 bg-slate-800/40 rounded-2xl border border-slate-700/50 shadow-sm"
           >
             {/* Miniatura del GIF */}
             <div className="w-16 h-16 bg-slate-700 rounded-xl overflow-hidden flex-shrink-0 border border-slate-600 flex items-center justify-center">

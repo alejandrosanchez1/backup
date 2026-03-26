@@ -17,6 +17,7 @@ import React from 'react'
 import { useWorkout } from '@/lib/workout-context' 
 import NutritionView from './NutritionView'
 import AdminView from './AdminView'
+import { fetchExercises as fetchExercisesAPI } from '@/lib/exercisedb-api'
 import BottomNav from '@/components/BottomNav'
 import confetti from 'canvas-confetti'
 
@@ -325,15 +326,20 @@ useEffect(() => {
     if (!rows?.length) return []
     const ids = rows.map((r: any) => r.exercise_id).filter(Boolean)
     const nameMap: Record<string, string> = {}
+    const gifMap: Record<string, string> = {}
     if (ids.length) {
       const { data: customExs } = await supabaseAdmin.from('custom_exercises').select('id, name').in('id', ids)
       ;(customExs || []).forEach((e: any) => { nameMap[e.id] = e.name })
-      const { data: allExs } = await supabase.from('all_exercises').select('id, name').in('id', ids)
-      ;(allExs || []).forEach((e: any) => { if (!nameMap[e.id]) nameMap[e.id] = e.name })
+      const { data: allExs } = await supabase.from('all_exercises').select('id, name, "gifUrl"').in('id', ids)
+      ;(allExs || []).forEach((e: any) => {
+        if (!nameMap[e.id]) nameMap[e.id] = e.name
+        if (e.gifUrl) gifMap[e.id] = e.gifUrl
+      })
     }
     return rows.map((re: any) => ({
       id: re.id, exercise_id: re.exercise_id,
       name: nameMap[re.exercise_id] || 'Ejercicio',
+      gifUrl: gifMap[re.exercise_id],
       sets: re.sets || 3, reps: re.reps || '10', rest_time: re.rest_time || 60, order: re.order ?? 0,
     }))
   }
@@ -354,13 +360,47 @@ useEffect(() => {
   const searchOwnExercises = async (q: string) => {
     setOwnExSearch(q); setSelectedOwnEx(null)
     if (q.trim().length < 2) { setOwnExResults([]); return }
-    const { data } = await supabaseAdmin.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(10)
-    setOwnExResults(data || [])
+    const term = q.trim()
+    const [customRes, dbRes, apiRes] = await Promise.allSettled([
+      supabaseAdmin.from('custom_exercises').select('id, name, target, gif_url').ilike('name', `%${term}%`).limit(5),
+      supabase.from('all_exercises').select('id, name, target, "gifUrl"').ilike('name', `%${term}%`).limit(5),
+      fetchExercisesAPI({ search: term, limit: 5 }),
+    ])
+    const results: any[] = []
+    if (customRes.status === 'fulfilled') results.push(...(customRes.value.data || []).map((e: any) => ({ ...e, gifUrl: e.gif_url || e.gifUrl })))
+    if (dbRes.status === 'fulfilled') results.push(...(dbRes.value.data || []).filter((e: any) => !results.find(r => r.id === e.id)))
+    if (apiRes.status === 'fulfilled') {
+      const raw = apiRes.value.data
+      const apiList: any[] = Array.isArray(raw) ? raw : (raw as any)?.exercises || (raw as any)?.data || []
+      const apiExs = apiList.map((e: any) => ({
+        id: e.exerciseId, name: e.name,
+        target: e.targetMuscles?.[0] || '',
+        gifUrl: e.gifUrl,
+        _fromApi: true, _apiData: e,
+      }))
+      apiExs.forEach((e: any) => { if (!results.find(r => r.name.toLowerCase() === e.name.toLowerCase())) results.push(e) })
+    }
+    setOwnExResults(results.slice(0, 10))
   }
 
   const addOwnExercise = async () => {
     if (!selectedOwnRoutine || !selectedOwnEx) return
     setAddingOwnEx(true)
+
+    // If exercise is from API, upsert to exercises_library first
+    if (selectedOwnEx._fromApi && selectedOwnEx._apiData) {
+      const e = selectedOwnEx._apiData
+      await supabaseAdmin.from('exercises_library').upsert([{
+        id: e.exerciseId, name: e.name,
+        target: e.targetMuscles?.[0] || '',
+        bodyPart: e.bodyParts?.[0] || '',
+        equipment: e.equipments?.[0] || '',
+        gifUrl: e.gifUrl,
+        instructions: e.instructions || [],
+        secondary_muscles: e.secondaryMuscles || [],
+      }], { onConflict: 'id' })
+    }
+
     const maxOrder = selectedOwnRoutine.exercises.reduce((m: number, e: any) => Math.max(m, e.order ?? 0), 0)
     await supabase.from('routine_exercises').insert([{
       routine_id: selectedOwnRoutine.id,
@@ -1638,150 +1678,322 @@ useEffect(() => {
                         </div>
 
                         {/* Añadir ejercicio */}
-                        <div className="p-4 space-y-3 rounded-2xl" style={{ background:'rgba(0,229,168,0.04)', border:'1px solid rgba(0,229,168,0.2)' }}>
-                          <div className="flex items-center justify-between">
-                            <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
-                            <button onClick={() => setShowOwnCreateEx(v => !v)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95"
-                              style={{ background: showOwnCreateEx ? 'rgba(0,229,168,0.15)' : 'rgba(255,255,255,0.05)', border:'1px solid rgba(0,229,168,0.3)', color:'#00E5A8' }}>
-                              <Plus size={11} /> Crear ejercicio
-                            </button>
+                        <div className="rounded-2xl overflow-hidden" style={{ background:'rgba(10,18,32,0.8)', border:'1px solid rgba(0,229,168,0.18)' }}>
+                          {/* Tab bar */}
+                          <div className="flex" style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                            {[{ id: false, icon: <Search size={12}/>, label:'Buscar' }, { id: true, icon: <Plus size={12}/>, label:'Crear' }].map(tab => (
+                              <button key={String(tab.id)} onClick={() => { setShowOwnCreateEx(tab.id); setOwnExSearch(''); setOwnExResults([]); setSelectedOwnEx(null) }}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-black uppercase tracking-wider transition-all"
+                                style={{
+                                  color: showOwnCreateEx === tab.id ? '#00E5A8' : '#6B7895',
+                                  borderBottom: showOwnCreateEx === tab.id ? '2px solid #00E5A8' : '2px solid transparent',
+                                  background: showOwnCreateEx === tab.id ? 'rgba(0,229,168,0.06)' : 'transparent',
+                                }}>
+                                {tab.icon}{tab.label}
+                              </button>
+                            ))}
                           </div>
 
-                          {/* Panel crear ejercicio nuevo */}
-                          {showOwnCreateEx && (
-                            <div className="p-3 rounded-xl space-y-2" style={{ background:'rgba(0,229,168,0.06)', border:'1px solid rgba(0,229,168,0.2)' }}>
-                              <input
-                                className="w-full rounded-xl px-3 py-2.5 outline-none text-white text-sm"
-                                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}
-                                placeholder="Nombre del ejercicio"
-                                value={ownNewEx.name}
-                                onChange={e => setOwnNewEx(p => ({ ...p, name: e.target.value }))}
-                              />
-                              <input
-                                className="w-full rounded-xl px-3 py-2.5 outline-none text-white text-sm"
-                                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}
-                                placeholder="Músculo objetivo (ej: Pecho)"
-                                value={ownNewEx.target}
-                                onChange={e => setOwnNewEx(p => ({ ...p, target: e.target.value }))}
-                              />
-                              <button onClick={createOwnCustomExercise} disabled={ownCreatingEx || !ownNewEx.name.trim()}
-                                className="w-full py-2.5 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                                style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)' }}>
-                                <Plus size={13} /> {ownCreatingEx ? 'Creando...' : 'Crear y seleccionar'}
-                              </button>
-                            </div>
-                          )}
+                          <div className="p-3 space-y-3">
+                            {/* ── CREAR tab ── */}
+                            {showOwnCreateEx ? (
+                              <div className="space-y-2">
+                                <div className="relative">
+                                  <input
+                                    className="w-full rounded-xl px-4 py-3 outline-none text-white text-sm font-bold"
+                                    style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}
+                                    placeholder="Nombre del ejercicio"
+                                    value={ownNewEx.name}
+                                    onChange={e => setOwnNewEx(p => ({ ...p, name: e.target.value }))}
+                                  />
+                                </div>
+                                <div className="relative">
+                                  <input
+                                    className="w-full rounded-xl px-4 py-3 outline-none text-white text-sm font-bold"
+                                    style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}
+                                    placeholder="Músculo objetivo (ej: Pecho)"
+                                    value={ownNewEx.target}
+                                    onChange={e => setOwnNewEx(p => ({ ...p, target: e.target.value }))}
+                                  />
+                                </div>
+                                <button onClick={createOwnCustomExercise} disabled={ownCreatingEx || !ownNewEx.name.trim()}
+                                  className="w-full py-3 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-40"
+                                  style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)' }}>
+                                  {ownCreatingEx ? <Loader2 size={14} className="animate-spin"/> : <Plus size={14}/>}
+                                  {ownCreatingEx ? 'Creando...' : 'Crear y seleccionar'}
+                                </button>
+                              </div>
+                            ) : (
+                              /* ── BUSCAR tab ── */
+                              <div className="space-y-3">
 
-                          <div className="relative">
-                            <div className="flex items-center gap-2 px-3 rounded-xl" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', display:'flex', padding:'0 12px' }}>
-                              <Search size={13} style={{ color:'#6B7895', flexShrink:0 }} />
-                              <input
-                                className="flex-1 bg-transparent outline-none py-3 text-sm text-white placeholder:text-slate-600"
-                                placeholder="Buscar ejercicio..."
-                                value={ownExSearch}
-                                onChange={e => searchOwnExercises(e.target.value)}
-                              />
-                              {ownExSearch && <button onClick={() => { setOwnExSearch(''); setOwnExResults([]); setSelectedOwnEx(null) }}><X size={13} style={{ color:'#6B7895' }} /></button>}
-                            </div>
-                            {ownExResults.length > 0 && (
-                              <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-2xl overflow-hidden"
-                                style={{ background:'#0f1a2e', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 12px 40px rgba(0,0,0,0.7)', maxHeight:220, overflowY:'auto' }}>
-                                {ownExResults.map((ex: any) => (
-                                  <button key={ex.id} onClick={() => { setSelectedOwnEx(ex); setOwnExSearch(ex.name); setOwnExResults([]) }}
-                                    className="w-full text-left px-4 py-3 transition-all"
-                                    style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
-                                    onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.08)')}
-                                    onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
-                                    <p className="text-sm font-bold text-white">{ex.name}</p>
-                                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target || 'General'}</p>
-                                  </button>
-                                ))}
+                                {/* Trigger button — abre el modal */}
+                                <button
+                                  onClick={() => { setOwnExSearch(' '); setTimeout(() => setOwnExSearch(''), 0) }}
+                                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-all active:scale-[0.98]"
+                                  style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}>
+                                  <Search size={15} style={{ color:'#4A5568' }} />
+                                  <span className="flex-1 text-left text-sm font-normal" style={{ color: selectedOwnEx ? '#fff' : '#4A5568' }}>
+                                    {selectedOwnEx ? selectedOwnEx.name : 'Buscar ejercicio…'}
+                                  </span>
+                                  {selectedOwnEx
+                                    ? <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{ background:'rgba(0,229,168,0.15)', color:'#00E5A8' }}>Seleccionado</span>
+                                    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg" style={{ background:'rgba(255,255,255,0.06)', color:'#4A5568' }}>Toca para buscar</span>
+                                  }
+                                </button>
+
+                                {/* ── MODAL DE BÚSQUEDA (fixed sobre todo) ── */}
+                                {ownExSearch !== null && ownExSearch !== undefined && (ownExSearch.length > 0 || ownExResults.length > 0) && (
+                                  <div className="fixed inset-0 z-[9999] flex flex-col justify-end" style={{ background:'rgba(0,0,0,0.75)', backdropFilter:'blur(6px)' }}
+                                    onClick={e => { if (e.target === e.currentTarget) { setOwnExSearch(''); setOwnExResults([]) } }}>
+                                    <div className="rounded-t-3xl flex flex-col overflow-hidden"
+                                      style={{ background:'#060e1a', border:'1px solid rgba(0,229,168,0.15)', borderBottom:'none', maxHeight:'85vh', boxShadow:'0 -20px 60px rgba(0,0,0,0.8)' }}>
+
+                                      {/* Handle */}
+                                      <div className="flex justify-center pt-3 pb-1 shrink-0">
+                                        <div className="w-10 h-1 rounded-full" style={{ background:'rgba(255,255,255,0.15)' }} />
+                                      </div>
+
+                                      {/* Header */}
+                                      <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+                                        <div>
+                                          <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
+                                          {ownExResults.length > 0 && (
+                                            <p className="text-xs font-bold mt-0.5" style={{ color:'#4A5568' }}>{ownExResults.length} resultado{ownExResults.length !== 1 ? 's' : ''}</p>
+                                          )}
+                                        </div>
+                                        <button onClick={() => { setOwnExSearch(''); setOwnExResults([]) }}
+                                          className="w-8 h-8 flex items-center justify-center rounded-xl transition-all active:scale-90"
+                                          style={{ background:'rgba(255,255,255,0.08)' }}>
+                                          <X size={14} style={{ color:'#A8B3CF' }} />
+                                        </button>
+                                      </div>
+
+                                      {/* Search bar dentro del modal */}
+                                      <div className="px-4 pb-3 shrink-0">
+                                        <div className="flex items-center gap-3 rounded-2xl px-4"
+                                          style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 0 0 2px rgba(0,229,168,0.08)' }}>
+                                          <Search size={15} style={{ color:'#00E5A8', flexShrink:0 }} />
+                                          <input autoFocus
+                                            className="flex-1 bg-transparent outline-none py-3.5 text-sm text-white font-bold placeholder:font-normal placeholder:text-slate-600"
+                                            style={{ caretColor:'#00E5A8' }}
+                                            placeholder="bench press, squat, curl…"
+                                            value={ownExSearch}
+                                            onChange={e => searchOwnExercises(e.target.value)}
+                                          />
+                                          {ownExSearch ? (
+                                            <button onClick={() => { setOwnExSearch(''); setOwnExResults([]) }}
+                                              className="w-6 h-6 flex items-center justify-center rounded-full"
+                                              style={{ background:'rgba(255,255,255,0.1)' }}>
+                                              <X size={10} style={{ color:'#A8B3CF' }} />
+                                            </button>
+                                          ) : null}
+                                        </div>
+                                      </div>
+
+                                      {/* Results list — scrollable */}
+                                      <div className="overflow-y-auto flex-1">
+                                        {ownExResults.length === 0 && ownExSearch.trim().length >= 2 && (
+                                          <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                            <Loader2 size={28} className="animate-spin" style={{ color:'#1E3A5F' }} />
+                                            <p className="text-xs font-bold uppercase tracking-wider" style={{ color:'#1E3A5F' }}>Buscando…</p>
+                                          </div>
+                                        )}
+                                        {ownExResults.length === 0 && ownExSearch.trim().length < 2 && ownExSearch.trim().length > 0 && (
+                                          <div className="flex flex-col items-center justify-center py-16 gap-2">
+                                            <p className="text-sm font-bold" style={{ color:'#1E3A5F' }}>Escribe al menos 2 letras</p>
+                                          </div>
+                                        )}
+                                        {ownExResults.map((ex: any, i: number) => (
+                                          <button key={ex.id}
+                                            onClick={() => { setSelectedOwnEx(ex); setOwnExSearch(''); setOwnExResults([]) }}
+                                            className="w-full text-left flex items-center transition-all active:scale-[0.98]"
+                                            style={{ borderBottom: i < ownExResults.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
+                                            onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.06)')}
+                                            onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
+                                            {/* Big GIF */}
+                                            <div className="relative shrink-0 m-3">
+                                              <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center"
+                                                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.07)' }}>
+                                                {ex.gifUrl ? (
+                                                  <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
+                                                ) : (
+                                                  <span className="text-2xl font-black" style={{ color:'#1E3A5F' }}>{ex.name?.charAt(0).toUpperCase()}</span>
+                                                )}
+                                              </div>
+                                              {ex._fromApi && (
+                                                <span className="absolute -top-1 -right-1 text-[7px] font-black px-1.5 py-0.5 rounded-full" style={{ background:'#00C2FF', color:'#060e1a', lineHeight:'1.4' }}>API</span>
+                                              )}
+                                            </div>
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0 py-3 pr-2">
+                                              <p className="text-sm font-black text-white leading-tight">{ex.name}</p>
+                                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                                {ex.target && (
+                                                  <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full" style={{ background:'rgba(0,229,168,0.12)', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.2)' }}>
+                                                    {ex.target}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl mr-3"
+                                              style={{ background:'rgba(0,229,168,0.08)', border:'1px solid rgba(0,229,168,0.15)' }}>
+                                              <Plus size={14} style={{ color:'#00E5A8' }} />
+                                            </div>
+                                          </button>
+                                        ))}
+                                        {/* bottom padding */}
+                                        <div className="h-6" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Selected exercise card */}
+                                {selectedOwnEx && (
+                                  <div className="rounded-2xl overflow-hidden" style={{ border:'1px solid rgba(0,229,168,0.2)', boxShadow:'0 8px 32px rgba(0,0,0,0.4)' }}>
+                                    {/* GIF banner */}
+                                    <div className="relative" style={{ height: 140, background:'#060e1a' }}>
+                                      {selectedOwnEx.gifUrl ? (
+                                        <img src={selectedOwnEx.gifUrl} alt={selectedOwnEx.name}
+                                          className="w-full h-full object-contain" loading="lazy"
+                                          style={{ filter:'brightness(0.85)' }} />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                          <Dumbbell size={36} style={{ color:'#1E3A5F' }} />
+                                        </div>
+                                      )}
+                                      <div className="absolute inset-0" style={{ background:'linear-gradient(to top, rgba(6,14,26,1) 0%, rgba(6,14,26,0.4) 55%, transparent 100%)' }} />
+                                      <div className="absolute bottom-0 left-0 right-0 px-3 pb-2.5">
+                                        <p className="font-black text-white text-sm leading-tight truncate">{selectedOwnEx.name}</p>
+                                        {selectedOwnEx.target && (
+                                          <span className="inline-block mt-1 text-[9px] uppercase font-black px-2 py-0.5 rounded-full"
+                                            style={{ background:'rgba(0,229,168,0.2)', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.3)' }}>
+                                            {selectedOwnEx.target}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <button onClick={() => { setSelectedOwnEx(null); setOwnExSearch('') }}
+                                        className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-xl transition-all active:scale-90"
+                                        style={{ background:'rgba(0,0,0,0.55)', backdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,0.1)' }}>
+                                        <X size={12} style={{ color:'#A8B3CF' }} />
+                                      </button>
+                                    </div>
+                                    {/* Config steppers */}
+                                    <div className="p-3 space-y-3" style={{ background:'rgba(6,14,26,0.98)' }}>
+                                      <div className="grid grid-cols-3 gap-2">
+                                        {([
+                                          { label:'Series',   field:'sets',      step:1,  min:1, max:20  },
+                                          { label:'Reps',     field:'reps',      isText:true             },
+                                          { label:'Descanso', field:'rest_time', step:15, min:0, max:300 },
+                                        ] as any[]).map(({ label, field, step, min, max, isText }) => (
+                                          <div key={field} className="rounded-xl p-2 flex flex-col items-center gap-1.5"
+                                            style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
+                                            <span className="text-[9px] uppercase font-black tracking-wider" style={{ color:'#4A5568' }}>{label}</span>
+                                            {isText ? (
+                                              <input type="text"
+                                                className="w-full text-center font-black text-lg outline-none bg-transparent"
+                                                style={{ color:'#00E5A8', caretColor:'#00E5A8' }}
+                                                value={(ownExConfig as any)[field]}
+                                                onChange={e => setOwnExConfig(p => ({ ...p, [field]: e.target.value }))}
+                                              />
+                                            ) : (
+                                              <div className="flex items-center justify-between w-full">
+                                                <button className="w-7 h-7 flex items-center justify-center rounded-lg text-lg font-black transition-all active:scale-90"
+                                                  style={{ background:'rgba(0,229,168,0.08)', color:'#00E5A8' }}
+                                                  onClick={() => setOwnExConfig(p => ({ ...p, [field]: Math.max(min, Number((p as any)[field]) - step) }))}>−</button>
+                                                <span className="font-black text-lg" style={{ color:'#00E5A8' }}>{(ownExConfig as any)[field]}</span>
+                                                <button className="w-7 h-7 flex items-center justify-center rounded-lg text-lg font-black transition-all active:scale-90"
+                                                  style={{ background:'rgba(0,229,168,0.08)', color:'#00E5A8' }}
+                                                  onClick={() => setOwnExConfig(p => ({ ...p, [field]: Math.min(max, Number((p as any)[field]) + step) }))}>+</button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <button onClick={addOwnExercise} disabled={addingOwnEx}
+                                        className="w-full py-3.5 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95"
+                                        style={{ background:'linear-gradient(135deg,#00E5A8 0%,#00C2FF 100%)', opacity: addingOwnEx ? 0.6 : 1, boxShadow: addingOwnEx ? 'none' : '0 4px 20px rgba(0,229,168,0.3)' }}>
+                                        {addingOwnEx ? <Loader2 size={15} className="animate-spin"/> : <Plus size={15}/>}
+                                        {addingOwnEx ? 'Añadiendo...' : 'Añadir a la rutina'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
-
-                          {selectedOwnEx && (
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
-                                <Dumbbell size={13} style={{ color:'#00E5A8', flexShrink:0 }} />
-                                <p className="text-sm font-bold text-white flex-1">{selectedOwnEx.name}</p>
-                                <button onClick={() => { setSelectedOwnEx(null); setOwnExSearch('') }}><X size={13} style={{ color:'#6B7895' }} /></button>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2">
-                                {[
-                                  { label:'Series', field:'sets', type:'number' },
-                                  { label:'Reps',   field:'reps', type:'text'   },
-                                  { label:'Desc.(s)',field:'rest_time', type:'number' },
-                                ].map(({ label, field, type }) => (
-                                  <div key={field}>
-                                    <label className="block text-[9px] uppercase font-bold mb-1" style={{ color:'#6B7895' }}>{label}</label>
-                                    <input type={type}
-                                      className="w-full text-center font-black text-base rounded-xl outline-none"
-                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(0,229,168,0.35)', color:'#00E5A8', padding:'10px 4px' }}
-                                      value={(ownExConfig as any)[field]}
-                                      onChange={e => setOwnExConfig(p => ({ ...p, [field]: type === 'number' ? Number(e.target.value) : e.target.value }))}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                              <button onClick={addOwnExercise} disabled={addingOwnEx}
-                                className="w-full py-3 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95"
-                                style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', opacity: addingOwnEx ? 0.6 : 1 }}>
-                                <Plus size={15} /> {addingOwnEx ? 'Añadiendo...' : 'Añadir a la rutina'}
-                              </button>
-                            </div>
-                          )}
                         </div>
 
                         {/* Lista ejercicios */}
-                        <div className="space-y-3">
-                          <p className="text-[10px] uppercase font-black tracking-widest px-1" style={{ color:'#6B7895' }}>
-                            Ejercicios · {selectedOwnRoutine.exercises?.length || 0}
-                          </p>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 px-1">
+                            <p className="text-[10px] uppercase font-black tracking-widest flex-1" style={{ color:'#6B7895' }}>
+                              Ejercicios
+                            </p>
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:'rgba(0,229,168,0.12)', color:'#00E5A8' }}>
+                              {selectedOwnRoutine.exercises?.length || 0}
+                            </span>
+                          </div>
                           {(selectedOwnRoutine.exercises || []).length === 0 && (
-                            <div className="text-center py-10 rounded-2xl" style={{ background:'rgba(18,26,42,0.6)', border:'1px solid rgba(255,255,255,0.05)' }}>
-                              <Dumbbell size={32} className="mx-auto mb-2 opacity-20" style={{ color:'#6B7895' }} />
-                              <p className="text-xs font-bold uppercase" style={{ color:'#6B7895' }}>Sin ejercicios</p>
+                            <div className="text-center py-12 rounded-2xl flex flex-col items-center gap-2" style={{ background:'rgba(10,18,32,0.5)', border:'1px dashed rgba(255,255,255,0.08)' }}>
+                              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background:'rgba(255,255,255,0.04)' }}>
+                                <Dumbbell size={22} style={{ color:'#2A3A55' }} />
+                              </div>
+                              <p className="text-xs font-bold uppercase tracking-wider" style={{ color:'#2A3A55' }}>Sin ejercicios</p>
+                              <p className="text-[10px]" style={{ color:'#1E2D45' }}>Busca o crea uno arriba</p>
                             </div>
                           )}
                           {(selectedOwnRoutine.exercises || []).map((ex: any, idx: number) => (
-                            <div key={ex.id} className="rounded-2xl overflow-hidden" style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.05)' }}>
-                              <div className="flex items-center justify-between px-4 pt-3 pb-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 font-black text-xs"
-                                    style={{ background:'rgba(0,229,168,0.12)', color:'#00E5A8' }}>{idx + 1}</div>
-                                  <p className="font-black text-sm text-white truncate">{ex.name}</p>
+                            <div key={ex.id} className="rounded-2xl overflow-hidden" style={{ background:'rgba(10,18,32,0.9)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                              {/* Card header: thumbnail + name + actions */}
+                              <div className="flex items-center gap-3 px-3 pt-3 pb-2">
+                                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center"
+                                  style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                                  {ex.gifUrl ? (
+                                    <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
+                                  ) : (
+                                    <span className="font-black text-base" style={{ color:'#00E5A8' }}>{idx + 1}</span>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-1 shrink-0 ml-2">
-                                  <button onClick={() => moveOwnExercise(idx, -1)} disabled={idx === 0}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95"
-                                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', opacity: idx === 0 ? 0.25 : 1 }}>
-                                    <ChevronUp size={12} style={{ color:'#A8B3CF' }} />
-                                  </button>
-                                  <button onClick={() => moveOwnExercise(idx, 1)} disabled={idx === selectedOwnRoutine.exercises.length - 1}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95"
-                                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', opacity: idx === selectedOwnRoutine.exercises.length - 1 ? 0.25 : 1 }}>
-                                    <ChevronDown size={12} style={{ color:'#A8B3CF' }} />
-                                  </button>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-black text-sm text-white leading-tight truncate">{ex.name}</p>
+                                  <p className="text-[10px] font-bold mt-0.5" style={{ color:'#6B7895' }}>
+                                    {ex.sets} series · {ex.reps} reps · {ex.rest_time}s
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <div className="flex flex-col gap-0.5">
+                                    <button onClick={() => moveOwnExercise(idx, -1)} disabled={idx === 0}
+                                      className="w-6 h-6 rounded-lg flex items-center justify-center transition-all active:scale-95"
+                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', opacity: idx === 0 ? 0.2 : 1 }}>
+                                      <ChevronUp size={10} style={{ color:'#A8B3CF' }} />
+                                    </button>
+                                    <button onClick={() => moveOwnExercise(idx, 1)} disabled={idx === selectedOwnRoutine.exercises.length - 1}
+                                      className="w-6 h-6 rounded-lg flex items-center justify-center transition-all active:scale-95"
+                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', opacity: idx === selectedOwnRoutine.exercises.length - 1 ? 0.2 : 1 }}>
+                                      <ChevronDown size={10} style={{ color:'#A8B3CF' }} />
+                                    </button>
+                                  </div>
                                   <button onClick={() => deleteOwnExercise(ex.id)}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95"
-                                    style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}>
+                                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95 ml-0.5"
+                                    style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.15)' }}>
                                     <Trash2 size={12} style={{ color:'#ef4444' }} />
                                   </button>
                                 </div>
                               </div>
-                              <div className="grid grid-cols-3 gap-2 px-4 pb-3">
+                              {/* Inline edit row */}
+                              <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
                                 {[
                                   { label:'Series',   field:'sets',      type:'number' },
                                   { label:'Reps',     field:'reps',      type:'text'   },
                                   { label:'Desc.(s)', field:'rest_time', type:'number' },
                                 ].map(({ label, field, type }) => (
-                                  <div key={field}>
-                                    <label className="block text-[9px] uppercase font-bold mb-1" style={{ color:'#6B7895' }}>{label}</label>
+                                  <div key={field} className="flex flex-col items-center gap-1">
+                                    <label className="text-[9px] uppercase font-black" style={{ color:'#6B7895' }}>{label}</label>
                                     <input type={type}
-                                      className="w-full text-center font-black text-sm rounded-xl outline-none"
-                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', color:'#fff', padding:'8px 4px' }}
+                                      className="w-full text-center font-black text-sm rounded-xl outline-none py-2"
+                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', color:'#E2E8F0' }}
                                       value={(ex as any)[field] ?? ''}
                                       onChange={e => updateOwnLocalEx(ex.id, field, type === 'number' ? Number(e.target.value) : e.target.value)}
                                       onBlur={() => saveOwnExercise(ex)}
