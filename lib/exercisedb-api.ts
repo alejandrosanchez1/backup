@@ -1,58 +1,104 @@
-const API_HOST = 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com';
+const API_HOST = 'exercisedb-api.vercel.app';
 const BASE_URL = `https://${API_HOST}/api/v1`;
 
 export interface ExerciseDBExercise {
   exerciseId: string;
   name: string;
-  imageUrl: string;
+  gifUrl: string;
   bodyParts: string[];
-  equipments: string[];
-  exerciseType: string;
   targetMuscles: string[];
   secondaryMuscles: string[];
-  keywords: string[];
+  equipments: string[];
+  instructions: string[];
+}
+
+export interface ExerciseForUI {
+  id: string;
+  name: string;
+  target: string;
+  bodyPart: string;
+  equipment: string;
+  gif_url: string;
+  secondaryMuscles: string[];
+  instructions: string[];
 }
 
 interface ExerciseDBResponse {
   success: boolean;
-  meta: {
-    total: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-    nextCursor: string | null;
-  };
   data: ExerciseDBExercise[];
+  metadata?: {
+    totalExercises: number;
+  };
 }
 
 function getHeaders() {
-  return {
-    'X-RapidAPI-Key': process.env.NEXT_PUBLIC_X_RAPIDAPI_KEY!,
-    'X-RapidAPI-Host': API_HOST,
-  };
+  return {};
 }
 
 export async function fetchExercises(params?: {
   limit?: number;
-  cursor?: string;
+  offset?: number;
   bodyPart?: string;
   equipment?: string;
   search?: string;
 }): Promise<ExerciseDBResponse> {
   const query = new URLSearchParams();
   if (params?.limit) query.set('limit', String(params.limit));
-  if (params?.cursor) query.set('cursor', params.cursor);
-  if (params?.bodyPart) query.set('bodyPart', params.bodyPart);
-  if (params?.equipment) query.set('equipment', params.equipment);
-  if (params?.search) query.set('search', params.search);
+  if (params?.offset) query.set('offset', String(params.offset));
 
-  const url = `${BASE_URL}/exercises${query.toString() ? `?${query}` : ''}`;
+  let url: string;
+  
+  if (params?.search) {
+    url = `${BASE_URL}/exercises/search?q=${encodeURIComponent(params.search)}`;
+  } else if (params?.bodyPart) {
+    url = `${BASE_URL}/bodyparts/${encodeURIComponent(params.bodyPart)}/exercises`;
+  } else if (params?.equipment) {
+    url = `${BASE_URL}/equipments/${encodeURIComponent(params.equipment)}/exercises`;
+  } else {
+    url = `${BASE_URL}/exercises`;
+  }
 
-  const res = await fetch(url, { headers: getHeaders() });
+  const res = await fetch(url, { 
+    headers: getHeaders(),
+    next: { revalidate: 3600 }
+  });
 
   if (!res.ok) {
     throw new Error(`ExerciseDB API error: ${res.status}`);
   }
 
+  const json = await res.json();
+  return {
+    success: true,
+    data: json,
+    metadata: { totalExercises: json.length }
+  };
+}
+
+export async function fetchBodyParts(): Promise<string[]> {
+  const res = await fetch(`${BASE_URL}/bodyparts`, { 
+    headers: getHeaders(),
+    next: { revalidate: 3600 }
+  });
+  if (!res.ok) throw new Error(`ExerciseDB API error: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchEquipments(): Promise<string[]> {
+  const res = await fetch(`${BASE_URL}/equipments`, { 
+    headers: getHeaders(),
+    next: { revalidate: 3600 }
+  });
+  if (!res.ok) throw new Error(`ExerciseDB API error: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchMuscles(): Promise<string[]> {
+  const res = await fetch(`${BASE_URL}/muscles`, { 
+    headers: getHeaders(),
+    next: { revalidate: 3600 }
+  });
+  if (!res.ok) throw new Error(`ExerciseDB API error: ${res.status}`);
   return res.json();
 }
 

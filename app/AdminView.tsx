@@ -7,6 +7,7 @@ import {
   Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown, Upload, Image
 } from 'lucide-react'
 import { exercisesData } from '@/lib/exercises-data'
+import { fetchExercises } from '@/lib/exercisedb-api'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wrjenrtnojmhianqzxlo.supabase.co'
 const SERVICE_ROLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyamVucnRub2ptaGlhbnF6eGxvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDU4MTYxOCwiZXhwIjoyMDg2MTU3NjE4fQ.GME1KUAeu-Z1ndUpNsQ9OFr0AnW0tcmGGU19eQG9d4U'
@@ -28,7 +29,7 @@ type Profile = {
   }
 }
 type Meal = { name: string; protein: string[]; carbs: string[]; fat: string[] }
-type RoutineEx = { id: number; exercise_id: string; name: string; sets: number; reps: string; rest_time: number; order: number }
+type RoutineEx = { id: number; exercise_id: string; name: string; target?: string; gifUrl?: string; sets: number; reps: string; rest_time: number; order: number }
 type Routine   = { id: string; name: string; exercises: RoutineEx[] }
 
 const MEAL_NAMES    = ['Desayuno', 'Media Mañana', 'Almuerzo', 'Media Tarde', 'Cena']
@@ -193,13 +194,16 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     const nameMap: Record<string, string> = {}
     const targetMap: Record<string, string> = {}
 
+    const gifMap: Record<string, string> = {}
+
     if (ids.length) {
       const { data: customEx } = await db.from('custom_exercises').select('id, name, target').in('id', ids)
       ;(customEx || []).forEach((e: any) => { nameMap[e.id] = e.name; targetMap[e.id] = e.target })
-      
-      const { data: allEx } = await db.from('all_exercises').select('id, name, target').in('id', ids)
-      ;(allEx || []).forEach((e: any) => { 
+
+      const { data: allEx } = await db.from('all_exercises').select('id, name, target, "gifUrl"').in('id', ids)
+      ;(allEx || []).forEach((e: any) => {
         if (!nameMap[e.id]) { nameMap[e.id] = e.name; targetMap[e.id] = e.target }
+        if (e.gifUrl) gifMap[e.id] = e.gifUrl
       })
     }
 
@@ -210,6 +214,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
         exercise_id: re.exercise_id,
         name: nameMap[re.exercise_id] || localEx?.name || 'Ejercicio',
         target: targetMap[re.exercise_id] || localEx?.muscle || '',
+        gifUrl: gifMap[re.exercise_id] || '',
         sets: re.sets || 3,
         reps: re.reps || '10',
         rest_time: re.rest_time || 60,
@@ -258,13 +263,43 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     setExSearch(q)
     setSelectedEx(null)
     if (q.trim().length < 2) { setExResults([]); return }
-    const { data: customEx } = await db.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(10)
-    const { data: allEx } = await db.from('all_exercises').select('id, name, category as target').ilike('name', `%${q.trim()}%`).limit(10)
-    const combined = [...(customEx || []), ...(allEx || [])]
-    setExResults(combined)
+
+    const [customExRes, allExRes, apiRes] = await Promise.allSettled([
+      db.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(5),
+      db.from('all_exercises').select('id, name, target, "gifUrl"').ilike('name', `%${q.trim()}%`).limit(5),
+      fetchExercises({ search: q.trim(), limit: 10 }),
+    ])
+
+    const customEx = customExRes.status === 'fulfilled' ? customExRes.value.data || [] : []
+    const allEx    = allExRes.status === 'fulfilled'    ? allExRes.value.data || []    : []
+    const apiEx    = apiRes.status === 'fulfilled'
+      ? apiRes.value.data.map((e: any) => ({
+          id: e.exerciseId,
+          name: e.name,
+          target: e.targetMuscles?.[0] || '',
+          gifUrl: e.gifUrl,
+          _fromApi: true,
+          _apiData: e,
+        }))
+      : []
+
+    setExResults([...customEx, ...allEx, ...apiEx])
   }
 
-  const pickExercise = (ex: any) => {
+  const pickExercise = async (ex: any) => {
+    if (ex._fromApi) {
+      // Guardar en exercises_library para tener un ID persistente
+      await db.from('exercises_library').upsert({
+        id: ex.id,
+        name: ex.name,
+        target: ex.target,
+        bodyPart: ex._apiData.bodyParts?.[0]?.toLowerCase() || '',
+        gifUrl: ex.gifUrl,
+        equipment: ex._apiData.equipments?.[0] || '',
+        instructions: ex._apiData.instructions || [],
+        secondary_muscles: ex._apiData.secondaryMuscles || [],
+      }, { onConflict: 'id' })
+    }
     setSelectedEx(ex)
     setExSearch(ex.name)
     setExResults([])
@@ -463,12 +498,21 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                 style={{ background:'#0f1a2e', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 12px 40px rgba(0,0,0,0.7)', maxHeight:260, overflowY:'auto' }}>
                 {exResults.map((ex: any) => (
                   <button key={ex.id} onClick={() => pickExercise(ex)}
-                    className="w-full text-left px-4 py-3 transition-all"
+                    className="w-full text-left px-3 py-2.5 flex items-center gap-3 transition-all"
                     style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
                     onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.08)')}
                     onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
-                    <p className="text-sm font-bold text-white">{ex.name}</p>
-                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target || 'General'}</p>
+                    <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 flex items-center justify-center"
+                      style={{ background:'rgba(255,255,255,0.06)' }}>
+                      {ex.gifUrl
+                        ? <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" />
+                        : <Dumbbell size={16} style={{ color:'#6B7895' }} />
+                      }
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{ex.name}</p>
+                      <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target || 'General'}</p>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -521,9 +565,17 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
           {selectedEx && (
             <div className="space-y-3 animate-in fade-in" style={{ animation:'fadeUp 0.2s ease-out both' }}>
               {/* Selected exercise badge */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
-                <Dumbbell size={13} style={{ color:'#00E5A8', flexShrink:0 }} />
-                <p className="text-sm font-bold text-white flex-1 break-words">{selectedEx.name}</p>
+              <div className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center" style={{ background:'rgba(255,255,255,0.06)' }}>
+                  {selectedEx.gifUrl
+                    ? <img src={selectedEx.gifUrl} alt={selectedEx.name} className="w-full h-full object-cover" />
+                    : <Dumbbell size={18} style={{ color:'#00E5A8' }} />
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{selectedEx.name}</p>
+                  {selectedEx.target && <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#00E5A8' }}>{selectedEx.target}</p>}
+                </div>
                 <button onClick={() => { setSelectedEx(null); setExSearch('') }}><X size={13} style={{ color:'#6B7895' }} /></button>
               </div>
 
@@ -579,11 +631,17 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
               {/* Exercise header */}
               <div className="flex items-center justify-between px-4 pt-4 pb-2">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-sm"
+                  <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center font-black text-sm"
                     style={{ background:'rgba(0,229,168,0.12)', color:'#00E5A8' }}>
-                    {idx + 1}
+                    {ex.gifUrl
+                      ? <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
+                      : idx + 1
+                    }
                   </div>
-                  <p className="font-black text-sm text-white break-words">{ex.name}</p>
+                  <div className="min-w-0">
+                    <p className="font-black text-sm text-white break-words">{ex.name}</p>
+                    {ex.target && <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target}</p>}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 ml-2">
                   <button onClick={() => moveExercise(idx, -1)} disabled={idx === 0}
