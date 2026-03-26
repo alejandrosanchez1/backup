@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { exercisesData } from '@/lib/exercises-data'
 import {
   Search, Dumbbell, Home, Settings, Play as PlayIcon, Plus,
   Trophy, X, Save, Trash2, CheckCircle, History,
@@ -320,8 +321,10 @@ useEffect(() => {
     const ids = rows.map((r: any) => r.exercise_id).filter(Boolean)
     const nameMap: Record<string, string> = {}
     if (ids.length) {
-      const { data: exs } = await supabase.from('custom_exercises').select('id, name').in('id', ids)
-      ;(exs || []).forEach((e: any) => { nameMap[e.id] = e.name })
+      const { data: customExs } = await supabaseAdmin.from('custom_exercises').select('id, name').in('id', ids)
+      ;(customExs || []).forEach((e: any) => { nameMap[e.id] = e.name })
+      const { data: allExs } = await supabase.from('all_exercises').select('id, name').in('id', ids)
+      ;(allExs || []).forEach((e: any) => { if (!nameMap[e.id]) nameMap[e.id] = e.name })
     }
     return rows.map((re: any) => ({
       id: re.id, exercise_id: re.exercise_id,
@@ -414,26 +417,42 @@ useEffect(() => {
     })
   }
 
-  const mapRoutineExercises = (eData: any[], routineId: string) =>
+  const mapRoutineExercises = (eData: any[], routineId: string, allExMap: Record<string, any> = {}) =>
     (eData || [])
       .filter(e => e.routine_id === routineId)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .map(re => ({
-        ...(re.custom_exercises || {}),
-        id: re.custom_exercises?.id ?? re.exercise_id,
-        name: re.custom_exercises?.name ?? re.exercise_id ?? 'Ejercicio',
-        routineExerciseId: re.id,
-        sets: re.sets,
-        reps: re.reps,
-        restTime: re.rest_time,
-        rest_time: re.rest_time,
-      }));
+      .map(re => {
+        const exerciseId = re.custom_exercises?.id ?? re.exercise_id
+        const localExercise = exercisesData.find(e => e.id === exerciseId)
+        const allEx = allExMap[re.exercise_id]
+        return {
+          ...(re.custom_exercises || {}),
+          ...(localExercise || {}),
+          id: exerciseId,
+          name: re.custom_exercises?.name ?? allEx?.name ?? localExercise?.name ?? re.exercise_id ?? 'Ejercicio',
+          target: re.custom_exercises?.target ?? allEx?.target ?? localExercise?.muscle ?? '',
+          equipment: localExercise?.equipment ?? '',
+          routineExerciseId: re.id,
+          sets: re.sets,
+          reps: re.reps,
+          restTime: re.rest_time,
+          rest_time: re.rest_time,
+        }
+      });
 
   const fetchRoutines = async (userId: string) => {
     const { data: rData } = await supabase.from('routines').select('*').eq('user_id', userId);
     if (rData) {
       const { data: eData } = await supabase.from('routine_exercises').select('*, custom_exercises(*)').in('routine_id', rData.map(r => r.id));
-      setRoutines(rData.map(r => ({ ...r, exercises: mapRoutineExercises(eData || [], r.id) })));
+      const allExerciseIds = [...new Set(eData?.map((e: any) => e.exercise_id).filter(Boolean) || [])];
+      let allExMap: Record<string, any> = {};
+      if (allExerciseIds.length > 0) {
+        const { data: customExData } = await supabaseAdmin.from('custom_exercises').select('id, name, target').in('id', allExerciseIds);
+        (customExData || []).forEach((e: any) => { allExMap[e.id] = e });
+        const { data: allExData } = await supabase.from('all_exercises').select('id, name, target').in('id', allExerciseIds);
+        (allExData || []).forEach((e: any) => { if (!allExMap[e.id]) allExMap[e.id] = e });
+      }
+      setRoutines(rData.map(r => ({ ...r, exercises: mapRoutineExercises(eData || [], r.id, allExMap) })));
     }
   };
 
@@ -443,7 +462,15 @@ useEffect(() => {
       .select('*, custom_exercises(*)')
       .eq('routine_id', routine.id)
       .order('order', { ascending: true });
-    const freshExercises = mapRoutineExercises(eData || [], routine.id);
+    const allExerciseIds = [...new Set(eData?.map((e: any) => e.exercise_id).filter(Boolean) || [])];
+    let allExMap: Record<string, any> = {};
+    if (allExerciseIds.length > 0) {
+      const { data: customExData } = await supabaseAdmin.from('custom_exercises').select('id, name, target').in('id', allExerciseIds);
+      (customExData || []).forEach((e: any) => { allExMap[e.id] = e });
+      const { data: allExData } = await supabase.from('all_exercises').select('id, name, target').in('id', allExerciseIds);
+      (allExData || []).forEach((e: any) => { if (!allExMap[e.id]) allExMap[e.id] = e });
+    }
+    const freshExercises = mapRoutineExercises(eData || [], routine.id, allExMap);
     setActiveRoutine({ ...routine, exercises: freshExercises });
     setCurrentView('workout');
   };

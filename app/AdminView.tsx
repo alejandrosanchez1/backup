@@ -6,6 +6,7 @@ import {
   Dumbbell, ChevronRight, Search, Check, ArrowLeft,
   Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown
 } from 'lucide-react'
+import { exercisesData } from '@/lib/exercises-data'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wrjenrtnojmhianqzxlo.supabase.co'
 const SERVICE_ROLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyamVucnRub2ptaGlhbnF6eGxvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDU4MTYxOCwiZXhwIjoyMDg2MTU3NjE4fQ.GME1KUAeu-Z1ndUpNsQ9OFr0AnW0tcmGGU19eQG9d4U'
@@ -153,21 +154,31 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
 
     const ids = rows.map((r: any) => r.exercise_id).filter(Boolean)
     const nameMap: Record<string, string> = {}
+    const targetMap: Record<string, string> = {}
 
     if (ids.length) {
-      const { data: customEx } = await db.from('custom_exercises').select('id, name').in('id', ids)
-      ;(customEx || []).forEach((e: any) => { nameMap[e.id] = e.name })
+      const { data: customEx } = await db.from('custom_exercises').select('id, name, target').in('id', ids)
+      ;(customEx || []).forEach((e: any) => { nameMap[e.id] = e.name; targetMap[e.id] = e.target })
+      
+      const { data: allEx } = await db.from('all_exercises').select('id, name, target').in('id', ids)
+      ;(allEx || []).forEach((e: any) => { 
+        if (!nameMap[e.id]) { nameMap[e.id] = e.name; targetMap[e.id] = e.target }
+      })
     }
 
-    return rows.map((re: any) => ({
-      id: re.id,
-      exercise_id: re.exercise_id,
-      name: nameMap[re.exercise_id] || 'Ejercicio',
-      sets: re.sets || 3,
-      reps: re.reps || '10',
-      rest_time: re.rest_time || 60,
-      order: re.order ?? 0,
-    }))
+    return rows.map((re: any) => {
+      const localEx = exercisesData.find(e => e.id === re.exercise_id)
+      return {
+        id: re.id,
+        exercise_id: re.exercise_id,
+        name: nameMap[re.exercise_id] || localEx?.name || 'Ejercicio',
+        target: targetMap[re.exercise_id] || localEx?.muscle || '',
+        sets: re.sets || 3,
+        reps: re.reps || '10',
+        rest_time: re.rest_time || 60,
+        order: re.order ?? 0,
+      }
+    })
   }
 
   const openRoutine = async (routine: Routine) => {
@@ -210,8 +221,10 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     setExSearch(q)
     setSelectedEx(null)
     if (q.trim().length < 2) { setExResults([]); return }
-    const { data } = await db.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(10)
-    setExResults(data || [])
+    const { data: customEx } = await db.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(10)
+    const { data: allEx } = await db.from('all_exercises').select('id, name, category as target').ilike('name', `%${q.trim()}%`).limit(10)
+    const combined = [...(customEx || []), ...(allEx || [])]
+    setExResults(combined)
   }
 
   const pickExercise = (ex: any) => {
