@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   X, Save, Trash2, Shield, Users, Plus, UserPlus,
   Dumbbell, ChevronRight, Search, Check, ArrowLeft,
-  Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown, Upload, Image
+  Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown, Upload, Image, Loader2
 } from 'lucide-react'
 import { exercisesData } from '@/lib/exercises-data'
 import { fetchExercises } from '@/lib/exercisedb-api'
@@ -301,7 +301,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
       }, { onConflict: 'id' })
     }
     setSelectedEx(ex)
-    setExSearch(ex.name)
+    setExSearch('')
     setExResults([])
   }
 
@@ -480,57 +480,26 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
         <div className="p-4 space-y-3 rounded-[20px]" style={{ background:'rgba(0,229,168,0.04)', border:'1px solid rgba(0,229,168,0.2)' }}>
           <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
 
-          {/* Search */}
-          <div className="relative">
-            <div className="flex items-center gap-2 px-3" style={{ ...inp, display:'flex', padding:'0 12px' }}>
-              <Search size={14} style={{ color:'#6B7895', flexShrink:0 }} />
-              <input
-                ref={searchRef}
-                className="flex-1 bg-transparent outline-none py-3 text-sm text-white placeholder:text-slate-600"
-                placeholder="Buscar ejercicio por nombre..."
-                value={exSearch}
-                onChange={e => searchExercises(e.target.value)}
-              />
-              {exSearch && <button onClick={() => { setExSearch(''); setExResults([]); setSelectedEx(null) }}><X size={14} style={{ color:'#6B7895' }} /></button>}
-            </div>
-            {exResults.length > 0 && (
-              <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-2xl overflow-hidden"
-                style={{ background:'#0f1a2e', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 12px 40px rgba(0,0,0,0.7)', maxHeight:260, overflowY:'auto' }}>
-                {exResults.map((ex: any) => (
-                  <button key={ex.id} onClick={() => pickExercise(ex)}
-                    className="w-full text-left px-3 py-2.5 flex items-center gap-3 transition-all"
-                    style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
-                    onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.08)')}
-                    onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
-                    <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 flex items-center justify-center"
-                      style={{ background:'rgba(255,255,255,0.06)' }}>
-                      {ex.gifUrl
-                        ? <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" />
-                        : <Dumbbell size={16} style={{ color:'#6B7895' }} />
-                      }
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-white truncate">{ex.name}</p>
-                      <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>{ex.target || 'General'}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Botón crear ejercicio / formulario */}
-          {!selectedEx && (
-            <div>
-              {!showCreateEx ? (
-                <button onClick={() => setShowCreateEx(true)}
-                  className="w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95"
-                  style={{ background:'rgba(255,255,255,0.04)', border:'1px dashed rgba(0,229,168,0.3)', color:'#00E5A8' }}>
-                  <Plus size={13} /> Crear ejercicio nuevo
+          {/* ── Tab bar Buscar / Crear ── */}
+          <div className="rounded-2xl overflow-hidden" style={{ background:'rgba(10,18,32,0.8)', border:'1px solid rgba(0,229,168,0.18)' }}>
+            <div className="flex" style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+              {[{ id: false, icon: <Search size={12}/>, label:'Buscar' }, { id: true, icon: <Plus size={12}/>, label:'Crear' }].map(tab => (
+                <button key={String(tab.id)} onClick={() => { setShowCreateEx(tab.id); setExSearch(''); setExResults([]); setSelectedEx(null) }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-black uppercase tracking-wider transition-all"
+                  style={{
+                    color: showCreateEx === tab.id ? '#00E5A8' : '#6B7895',
+                    borderBottom: showCreateEx === tab.id ? '2px solid #00E5A8' : '2px solid transparent',
+                    background: showCreateEx === tab.id ? 'rgba(0,229,168,0.06)' : 'transparent',
+                  }}>
+                  {tab.icon}{tab.label}
                 </button>
-              ) : (
-                <div className="space-y-2 p-3 rounded-xl" style={{ background:'rgba(0,229,168,0.06)', border:'1px solid rgba(0,229,168,0.2)' }}>
-                  <p className="text-[9px] uppercase font-black tracking-wider" style={{ color:'#00E5A8' }}>Nuevo ejercicio</p>
+              ))}
+            </div>
+
+            <div className="p-3 space-y-3">
+              {showCreateEx ? (
+                /* ── CREAR tab ── */
+                <div className="space-y-2">
                   <input
                     style={{ ...inp, fontSize:13 } as React.CSSProperties}
                     placeholder="Nombre del ejercicio *"
@@ -544,68 +513,203 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                     value={newEx.target}
                     onChange={e => setNewEx(p => ({ ...p, target: e.target.value }))}
                   />
-                  <div className="flex gap-2">
-                    <button onClick={() => { setShowCreateEx(false); setNewEx({ name:'', target:'' }) }}
-                      className="flex-1 py-2 rounded-xl text-xs font-bold transition-all active:scale-95"
-                      style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}>
-                      Cancelar
-                    </button>
-                    <button onClick={createCustomExercise} disabled={creatingEx}
-                      className="flex-1 py-2 rounded-xl text-xs font-black text-white flex items-center justify-center gap-1 transition-all active:scale-95"
-                      style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', opacity: creatingEx ? 0.6 : 1 }}>
-                      <Check size={13} /> {creatingEx ? 'Creando...' : 'Crear'}
-                    </button>
-                  </div>
+                  <button onClick={createCustomExercise} disabled={creatingEx || !newEx.name.trim()}
+                    className="w-full py-3 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-40"
+                    style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)' }}>
+                    {creatingEx ? <Loader2 size={14} className="animate-spin"/> : <Plus size={14}/>}
+                    {creatingEx ? 'Creando...' : 'Crear y seleccionar'}
+                  </button>
+                </div>
+              ) : (
+                /* ── BUSCAR tab ── */
+                <div className="space-y-3">
+                  {/* Trigger button */}
+                  <button
+                    onClick={() => setExSearch(' ')}
+                    className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-all active:scale-[0.98]"
+                    style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}>
+                    <Search size={15} style={{ color:'#4A5568' }} />
+                    <span className="flex-1 text-left text-sm font-normal" style={{ color: selectedEx ? '#fff' : '#4A5568' }}>
+                      {selectedEx ? selectedEx.name : 'Buscar ejercicio…'}
+                    </span>
+                    {selectedEx
+                      ? <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{ background:'rgba(0,229,168,0.15)', color:'#00E5A8' }}>Seleccionado</span>
+                      : <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg" style={{ background:'rgba(255,255,255,0.06)', color:'#4A5568' }}>Toca aquí</span>
+                    }
+                  </button>
+
+                  {/* ── MODAL DE BÚSQUEDA (fixed sobre todo) ── */}
+                  {exSearch.length > 0 && (
+                    <div className="fixed inset-0 z-[9999] flex flex-col justify-end"
+                      style={{ background:'rgba(0,0,0,0.75)', backdropFilter:'blur(6px)' }}
+                      onClick={e => { if (e.target === e.currentTarget) { setExSearch(''); setExResults([]) } }}>
+                      <div className="rounded-t-3xl flex flex-col overflow-hidden"
+                        style={{ background:'#060e1a', border:'1px solid rgba(0,229,168,0.15)', borderBottom:'none', maxHeight:'85vh', boxShadow:'0 -20px 60px rgba(0,0,0,0.8)' }}>
+
+                        {/* Handle */}
+                        <div className="flex justify-center pt-3 pb-1 shrink-0">
+                          <div className="w-10 h-1 rounded-full" style={{ background:'rgba(255,255,255,0.15)' }} />
+                        </div>
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+                          <div>
+                            <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>Añadir ejercicio</p>
+                            {exResults.length > 0 && (
+                              <p className="text-xs font-bold mt-0.5" style={{ color:'#4A5568' }}>{exResults.length} resultado{exResults.length !== 1 ? 's' : ''}</p>
+                            )}
+                          </div>
+                          <button onClick={() => { setExSearch(''); setExResults([]) }}
+                            className="w-8 h-8 flex items-center justify-center rounded-xl transition-all active:scale-90"
+                            style={{ background:'rgba(255,255,255,0.08)' }}>
+                            <X size={14} style={{ color:'#A8B3CF' }} />
+                          </button>
+                        </div>
+
+                        {/* Search bar */}
+                        <div className="px-4 pb-3 shrink-0">
+                          <div className="flex items-center gap-3 rounded-2xl px-4"
+                            style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(0,229,168,0.25)', boxShadow:'0 0 0 2px rgba(0,229,168,0.08)' }}>
+                            <Search size={15} style={{ color:'#00E5A8', flexShrink:0 }} />
+                            <input autoFocus
+                              ref={searchRef}
+                              className="flex-1 bg-transparent outline-none py-3.5 text-sm text-white font-bold placeholder:font-normal placeholder:text-slate-600"
+                              style={{ caretColor:'#00E5A8' }}
+                              placeholder="bench press, squat, curl…"
+                              value={exSearch.trim()}
+                              onChange={e => searchExercises(e.target.value)}
+                            />
+                            {exSearch.trim() && (
+                              <button onClick={() => { setExSearch(''); setExResults([]) }}
+                                className="w-6 h-6 flex items-center justify-center rounded-full"
+                                style={{ background:'rgba(255,255,255,0.1)' }}>
+                                <X size={10} style={{ color:'#A8B3CF' }} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Results list */}
+                        <div className="overflow-y-auto flex-1">
+                          {exResults.length === 0 && exSearch.trim().length >= 2 && (
+                            <div className="flex flex-col items-center justify-center py-16 gap-3">
+                              <Loader2 size={28} className="animate-spin" style={{ color:'#1E3A5F' }} />
+                              <p className="text-xs font-bold uppercase tracking-wider" style={{ color:'#1E3A5F' }}>Buscando…</p>
+                            </div>
+                          )}
+                          {exResults.length === 0 && exSearch.trim().length < 2 && exSearch.trim().length > 0 && (
+                            <div className="flex flex-col items-center justify-center py-16 gap-2">
+                              <p className="text-sm font-bold" style={{ color:'#1E3A5F' }}>Escribe al menos 2 letras</p>
+                            </div>
+                          )}
+                          {exResults.map((ex: any, i: number) => (
+                            <button key={ex.id} onClick={() => pickExercise(ex)}
+                              className="w-full text-left flex items-center transition-all active:scale-[0.98]"
+                              style={{ borderBottom: i < exResults.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
+                              onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.06)')}
+                              onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
+                              <div className="relative shrink-0 m-3">
+                                <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center"
+                                  style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.07)' }}>
+                                  {ex.gifUrl
+                                    ? <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
+                                    : <span className="text-2xl font-black" style={{ color:'#1E3A5F' }}>{ex.name?.charAt(0).toUpperCase()}</span>
+                                  }
+                                </div>
+                                {ex._fromApi && (
+                                  <span className="absolute -top-1 -right-1 text-[7px] font-black px-1.5 py-0.5 rounded-full" style={{ background:'#00C2FF', color:'#060e1a', lineHeight:'1.4' }}>API</span>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0 py-3 pr-2">
+                                <p className="text-sm font-black text-white leading-tight">{ex.name}</p>
+                                {ex.target && (
+                                  <span className="inline-block mt-1.5 text-[9px] uppercase font-black px-2 py-0.5 rounded-full" style={{ background:'rgba(0,229,168,0.12)', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.2)' }}>
+                                    {ex.target}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl mr-3"
+                                style={{ background:'rgba(0,229,168,0.08)', border:'1px solid rgba(0,229,168,0.15)' }}>
+                                <Plus size={14} style={{ color:'#00E5A8' }} />
+                              </div>
+                            </button>
+                          ))}
+                          <div className="h-6" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Selected exercise card con GIF banner */}
+                  {selectedEx && (
+                    <div className="rounded-2xl overflow-hidden" style={{ border:'1px solid rgba(0,229,168,0.2)', boxShadow:'0 8px 32px rgba(0,0,0,0.4)' }}>
+                      <div className="relative" style={{ height:130, background:'#060e1a' }}>
+                        {selectedEx.gifUrl
+                          ? <img src={selectedEx.gifUrl} alt={selectedEx.name} className="w-full h-full object-contain" loading="lazy" style={{ filter:'brightness(0.85)' }} />
+                          : <div className="w-full h-full flex items-center justify-center"><Dumbbell size={36} style={{ color:'#1E3A5F' }} /></div>
+                        }
+                        <div className="absolute inset-0" style={{ background:'linear-gradient(to top, rgba(6,14,26,1) 0%, rgba(6,14,26,0.4) 55%, transparent 100%)' }} />
+                        <div className="absolute bottom-0 left-0 right-0 px-3 pb-2.5">
+                          <p className="font-black text-white text-sm leading-tight truncate">{selectedEx.name}</p>
+                          {selectedEx.target && (
+                            <span className="inline-block mt-1 text-[9px] uppercase font-black px-2 py-0.5 rounded-full"
+                              style={{ background:'rgba(0,229,168,0.2)', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.3)' }}>
+                              {selectedEx.target}
+                            </span>
+                          )}
+                        </div>
+                        <button onClick={() => { setSelectedEx(null); setExSearch('') }}
+                          className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-xl transition-all active:scale-90"
+                          style={{ background:'rgba(0,0,0,0.55)', backdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,0.1)' }}>
+                          <X size={12} style={{ color:'#A8B3CF' }} />
+                        </button>
+                      </div>
+
+                      {/* Steppers */}
+                      <div className="p-3 space-y-3" style={{ background:'rgba(6,14,26,0.98)' }}>
+                        <div className="grid grid-cols-3 gap-2">
+                          {([
+                            { label:'Series',   field:'sets',      step:1,  min:1, max:20  },
+                            { label:'Reps',     field:'reps',      isText:true             },
+                            { label:'Descanso', field:'rest_time', step:15, min:0, max:300 },
+                          ] as any[]).map(({ label, field, step, min, max, isText }) => (
+                            <div key={field} className="rounded-xl p-2 flex flex-col items-center gap-1.5"
+                              style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
+                              <span className="text-[9px] uppercase font-black tracking-wider" style={{ color:'#4A5568' }}>{label}</span>
+                              {isText ? (
+                                <input type="text"
+                                  className="w-full text-center font-black text-lg outline-none bg-transparent"
+                                  style={{ color:'#00E5A8', caretColor:'#00E5A8' }}
+                                  value={(exConfig as any)[field]}
+                                  onChange={e => setExConfig(p => ({ ...p, [field]: e.target.value }))}
+                                />
+                              ) : (
+                                <div className="flex items-center justify-between w-full">
+                                  <button className="w-7 h-7 flex items-center justify-center rounded-lg text-lg font-black transition-all active:scale-90"
+                                    style={{ background:'rgba(0,229,168,0.08)', color:'#00E5A8' }}
+                                    onClick={() => setExConfig(p => ({ ...p, [field]: Math.max(min, Number((p as any)[field]) - step) }))}>−</button>
+                                  <span className="font-black text-lg" style={{ color:'#00E5A8' }}>{(exConfig as any)[field]}</span>
+                                  <button className="w-7 h-7 flex items-center justify-center rounded-lg text-lg font-black transition-all active:scale-90"
+                                    style={{ background:'rgba(0,229,168,0.08)', color:'#00E5A8' }}
+                                    onClick={() => setExConfig(p => ({ ...p, [field]: Math.min(max, Number((p as any)[field]) + step) }))}>+</button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <button onClick={addExerciseToRoutine} disabled={addingEx}
+                          className="w-full py-3.5 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95"
+                          style={{ background:'linear-gradient(135deg,#00E5A8 0%,#00C2FF 100%)', opacity: addingEx ? 0.6 : 1, boxShadow: addingEx ? 'none' : '0 4px 20px rgba(0,229,168,0.3)' }}>
+                          {addingEx ? <Loader2 size={15} className="animate-spin"/> : <Plus size={15}/>}
+                          {addingEx ? 'Añadiendo...' : 'Añadir a la rutina'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-
-          {/* Config: only show when exercise selected */}
-          {selectedEx && (
-            <div className="space-y-3 animate-in fade-in" style={{ animation:'fadeUp 0.2s ease-out both' }}>
-              {/* Selected exercise badge */}
-              <div className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
-                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center" style={{ background:'rgba(255,255,255,0.06)' }}>
-                  {selectedEx.gifUrl
-                    ? <img src={selectedEx.gifUrl} alt={selectedEx.name} className="w-full h-full object-cover" />
-                    : <Dumbbell size={18} style={{ color:'#00E5A8' }} />
-                  }
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{selectedEx.name}</p>
-                  {selectedEx.target && <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#00E5A8' }}>{selectedEx.target}</p>}
-                </div>
-                <button onClick={() => { setSelectedEx(null); setExSearch('') }}><X size={13} style={{ color:'#6B7895' }} /></button>
-              </div>
-
-              {/* Sets / Reps / Rest */}
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label:'Series',   icon:<Hash size={11}/>,  field:'sets',     type:'number', unit:'' },
-                  { label:'Reps',     icon:<RotateCcw size={11}/>, field:'reps', type:'text',   unit:'' },
-                  { label:'Desc.(s)', icon:<Clock size={11}/>, field:'rest_time', type:'number', unit:'s' },
-                ].map(({ label, icon, field, type }) => (
-                  <div key={field}>
-                    <label style={{ ...lbl, marginBottom:4, display:'flex', alignItems:'center', gap:4 }}>{icon}{label}</label>
-                    <input
-                      type={type} inputMode={type === 'number' ? 'numeric' : 'text'}
-                      className="text-center font-black text-base"
-                      style={{ ...inp, padding:'10px 4px', color:'#00E5A8', border:'1px solid rgba(0,229,168,0.35)' } as React.CSSProperties}
-                      value={(exConfig as any)[field]}
-                      onChange={e => setExConfig(p => ({ ...p, [field]: type === 'number' ? Number(e.target.value) : e.target.value }))}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <button onClick={addExerciseToRoutine} disabled={addingEx}
-                className="w-full py-3 rounded-xl font-black uppercase text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-95"
-                style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', opacity: addingEx ? 0.6 : 1, boxShadow:'0 6px 20px rgba(0,229,168,0.35)' }}>
-                <Plus size={16} /> {addingEx ? 'Añadiendo...' : 'Añadir a la rutina'}
-              </button>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* ── LISTA DE EJERCICIOS ── */}
