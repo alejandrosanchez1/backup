@@ -1479,53 +1479,60 @@ useEffect(() => {
               {/* Header */}
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-[10px] uppercase font-bold tracking-widest mb-1" style={{ color: '#6B7895' }}>Configuración</p>
+                  <p className="text-[10px] uppercase font-bold tracking-widest mb-1" style={{ color: '#6B7895' }}>
+                    {userStats.role === 'user' ? 'Mis Rutinas' : 'Configuración'}
+                  </p>
                   <h1 className="text-3xl font-black uppercase tracking-tight text-white">
-                    {activeSettingsTab === 'rutinas' ? t('rutinas') : t('settings')}
+                    {userStats.role === 'user' ? 'RUTINAS' : (activeSettingsTab === 'rutinas' ? t('rutinas') : t('settings'))}
                   </h1>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setActiveSettingsTab(activeSettingsTab === 'rutinas' ? 'general' : 'rutinas')}
-                    className="p-3 rounded-2xl transition-all active:scale-95"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-                  >
-                    <Settings size={18} style={{ color: '#6B7895' }}/>
-                  </button>
-                  {activeSettingsTab !== 'rutinas' && (
+                {/* Gear + Save — solo admin/coach */}
+                {['admin','coach'].includes(userStats.role) && (
+                  <div className="flex gap-2">
                     <button
-                      onClick={saveProfile} disabled={isSaving}
-                      className="px-5 py-2.5 rounded-2xl font-black text-xs uppercase text-white flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 16px rgba(0,229,168,0.35)' }}
+                      onClick={() => setActiveSettingsTab(activeSettingsTab === 'rutinas' ? 'general' : 'rutinas')}
+                      className="p-3 rounded-2xl transition-all active:scale-95"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
                     >
-                      <Save size={15}/> {isSaving ? '...' : t('save')}
+                      <Settings size={18} style={{ color: '#6B7895' }}/>
                     </button>
-                  )}
-                </div>
+                    {activeSettingsTab !== 'rutinas' && (
+                      <button
+                        onClick={saveProfile} disabled={isSaving}
+                        className="px-5 py-2.5 rounded-2xl font-black text-xs uppercase text-white flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                        style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 16px rgba(0,229,168,0.35)' }}
+                      >
+                        <Save size={15}/> {isSaving ? '...' : t('save')}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Tabs */}
-              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas', ...(userStats.role === 'coach' ? ['nutricion'] : [])].map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveSettingsTab(tab)}
-                    className="flex-shrink-0 px-4 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
-                    style={activeSettingsTab === tab
-                      ? { background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', color: '#fff', boxShadow: '0 4px 16px rgba(0,229,168,0.35)' }
-                      : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7895' }
-                    }
-                  >
-                    {tab === 'notas' ? 'Notas' : t(tab as any)}
-                  </button>
-                ))}
-              </div>
+              {/* Tabs — solo admin/coach ven todas; user solo ve rutinas */}
+              {['admin','coach'].includes(userStats.role) && (
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas', ...(userStats.role === 'coach' ? ['nutricion'] : [])].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveSettingsTab(tab)}
+                      className="flex-shrink-0 px-4 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
+                      style={activeSettingsTab === tab
+                        ? { background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', color: '#fff', boxShadow: '0 4px 16px rgba(0,229,168,0.35)' }
+                        : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7895' }
+                      }
+                    >
+                      {tab === 'notas' ? 'Notas' : t(tab as any)}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Tab content card */}
               <div className="p-5 rounded-[20px]" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
 
-                {/* TAB GENERAL */}
-                {activeSettingsTab === 'general' && (
+                {/* TAB GENERAL — solo admin/coach */}
+                {activeSettingsTab === 'general' && ['admin','coach'].includes(userStats.role) && (
                   <div className="space-y-5">
                     <div>
                       <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Nombre Completo</label>
@@ -1566,8 +1573,8 @@ useEffect(() => {
                   </div>
                 )}
 
-                {/* TAB OBJETIVOS */}
-                {activeSettingsTab === 'objetivos' && (
+                {/* TAB OBJETIVOS — solo admin/coach */}
+                {activeSettingsTab === 'objetivos' && ['admin','coach'].includes(userStats.role) && (
                   <div className="space-y-5">
                     <div>
                       <label className="block text-[10px] uppercase font-bold mb-3" style={{ color: '#6B7895' }}>{t('focusAreas')}</label>
@@ -1623,8 +1630,8 @@ useEffect(() => {
                   </div>
                 )}
 
-                {/* TAB ANTROPOMETRIA */}
-                {activeSettingsTab === 'antropometria' && (
+                {/* TAB ANTROPOMETRIA — solo admin/coach */}
+                {activeSettingsTab === 'antropometria' && ['admin','coach'].includes(userStats.role) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {[
                       { title: 'Pliegues (mm)', data: userStats.skinfolds, key: 'skinfolds' },
@@ -2152,8 +2159,8 @@ useEffect(() => {
                 <NutritionView userId={user?.id} supabase={supabase} />
               )}
 
-              {/* TAB NOTAS */}
-              {activeSettingsTab === 'notas' && (
+              {/* TAB NOTAS — solo admin/coach */}
+              {activeSettingsTab === 'notas' && ['admin','coach'].includes(userStats.role) && (
                 <div className="space-y-5">
                   <div>
                     <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Estilo de dieta</label>
@@ -2231,14 +2238,20 @@ useEffect(() => {
                       <Dumbbell size={32} style={{ color: '#6B7895' }} />
                     </div>
                     <p className="font-bold uppercase text-sm mb-1" style={{ color: '#A8B3CF' }}>No tienes rutinas aún</p>
-                    <p className="text-xs mb-5" style={{ color: '#6B7895' }}>Crea tu primera rutina para empezar</p>
-                    <button
-                      onClick={() => { setCurrentView('routines'); setActiveSettingsTab('rutinas'); }}
-                      className="px-6 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-widest text-white"
-                      style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 20px rgba(0,229,168,0.3)' }}
-                    >
-                      + Crear rutina
-                    </button>
+                    {['admin','coach'].includes(userStats.role) ? (
+                      <>
+                        <p className="text-xs mb-5" style={{ color: '#6B7895' }}>Crea tu primera rutina para empezar</p>
+                        <button
+                          onClick={() => { setCurrentView('routines'); setActiveSettingsTab('rutinas'); }}
+                          className="px-6 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-widest text-white"
+                          style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 20px rgba(0,229,168,0.3)' }}
+                        >
+                          + Crear rutina
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-xs" style={{ color: '#6B7895' }}>Tu coach está trabajando en tu estrategia</p>
+                    )}
                   </div>
                 )}
 
