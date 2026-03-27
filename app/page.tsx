@@ -1665,20 +1665,22 @@ useEffect(() => {
                             <p className="text-[9px] uppercase font-bold tracking-widest" style={{ color:'#6B7895' }}>Rutina</p>
                             <h3 className="font-black text-base text-white truncate">{selectedOwnRoutine.name}</h3>
                           </div>
-                          <button onClick={async () => {
-                            if (!confirm(`¿Eliminar "${selectedOwnRoutine.name}"?`)) return
-                            await supabase.from('routine_exercises').delete().eq('routine_id', selectedOwnRoutine.id)
-                            await supabase.from('routines').delete().eq('id', selectedOwnRoutine.id)
-                            setSelectedOwnRoutine(null); fetchRoutines(user.id)
-                          }}
-                            className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95"
-                            style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}>
-                            <Trash2 size={14} style={{ color:'#ef4444' }} />
-                          </button>
+                          {['admin','coach'].includes(userStats.role) && (
+                            <button onClick={async () => {
+                              if (!confirm(`¿Eliminar "${selectedOwnRoutine.name}"?`)) return
+                              await supabase.from('routine_exercises').delete().eq('routine_id', selectedOwnRoutine.id)
+                              await supabase.from('routines').delete().eq('id', selectedOwnRoutine.id)
+                              setSelectedOwnRoutine(null); fetchRoutines(user.id)
+                            }}
+                              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95"
+                              style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)' }}>
+                              <Trash2 size={14} style={{ color:'#ef4444' }} />
+                            </button>
+                          )}
                         </div>
 
-                        {/* Añadir ejercicio */}
-                        <div className="rounded-2xl overflow-hidden" style={{ background:'rgba(10,18,32,0.8)', border:'1px solid rgba(0,229,168,0.18)' }}>
+                        {/* Añadir ejercicio — solo admin/coach */}
+                        {['admin','coach'].includes(userStats.role) && <div className="rounded-2xl overflow-hidden" style={{ background:'rgba(10,18,32,0.8)', border:'1px solid rgba(0,229,168,0.18)' }}>
                           {/* Tab bar */}
                           <div className="flex" style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                             {[{ id: false, icon: <Search size={12}/>, label:'Buscar' }, { id: true, icon: <Plus size={12}/>, label:'Crear' }].map(tab => (
@@ -1923,7 +1925,7 @@ useEffect(() => {
                               </div>
                             )}
                           </div>
-                        </div>
+                        </div>}
 
                         {/* Lista ejercicios */}
                         <div className="space-y-2">
@@ -1940,8 +1942,17 @@ useEffect(() => {
                               <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background:'rgba(255,255,255,0.04)' }}>
                                 <Dumbbell size={22} style={{ color:'#2A3A55' }} />
                               </div>
-                              <p className="text-xs font-bold uppercase tracking-wider" style={{ color:'#2A3A55' }}>Sin ejercicios</p>
-                              <p className="text-[10px]" style={{ color:'#1E2D45' }}>Busca o crea uno arriba</p>
+                              {userStats.role === 'user' ? (
+                                <>
+                                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color:'#2A3A55' }}>Sin ejercicios aún</p>
+                                  <p className="text-[10px] px-4 text-center" style={{ color:'#1E2D45' }}>Tu coach está añadiendo ejercicios a esta rutina</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color:'#2A3A55' }}>Sin ejercicios</p>
+                                  <p className="text-[10px]" style={{ color:'#1E2D45' }}>Busca o crea uno arriba</p>
+                                </>
+                              )}
                             </div>
                           )}
                           {(selectedOwnRoutine.exercises || []).map((ex: any, idx: number) => (
@@ -1962,45 +1973,65 @@ useEffect(() => {
                                     {ex.sets} series · {ex.reps} reps · {ex.rest_time}s
                                   </p>
                                 </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <div className="flex flex-col gap-0.5">
-                                    <button onClick={() => moveOwnExercise(idx, -1)} disabled={idx === 0}
-                                      className="w-6 h-6 rounded-lg flex items-center justify-center transition-all active:scale-95"
-                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', opacity: idx === 0 ? 0.2 : 1 }}>
-                                      <ChevronUp size={10} style={{ color:'#A8B3CF' }} />
-                                    </button>
-                                    <button onClick={() => moveOwnExercise(idx, 1)} disabled={idx === selectedOwnRoutine.exercises.length - 1}
-                                      className="w-6 h-6 rounded-lg flex items-center justify-center transition-all active:scale-95"
-                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', opacity: idx === selectedOwnRoutine.exercises.length - 1 ? 0.2 : 1 }}>
-                                      <ChevronDown size={10} style={{ color:'#A8B3CF' }} />
+                                {/* Move/delete — solo admin/coach */}
+                                {['admin','coach'].includes(userStats.role) && (
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <div className="flex flex-col gap-0.5">
+                                      <button onClick={() => moveOwnExercise(idx, -1)} disabled={idx === 0}
+                                        className="w-6 h-6 rounded-lg flex items-center justify-center transition-all active:scale-95"
+                                        style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', opacity: idx === 0 ? 0.2 : 1 }}>
+                                        <ChevronUp size={10} style={{ color:'#A8B3CF' }} />
+                                      </button>
+                                      <button onClick={() => moveOwnExercise(idx, 1)} disabled={idx === selectedOwnRoutine.exercises.length - 1}
+                                        className="w-6 h-6 rounded-lg flex items-center justify-center transition-all active:scale-95"
+                                        style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', opacity: idx === selectedOwnRoutine.exercises.length - 1 ? 0.2 : 1 }}>
+                                        <ChevronDown size={10} style={{ color:'#A8B3CF' }} />
+                                      </button>
+                                    </div>
+                                    <button onClick={() => deleteOwnExercise(ex.id)}
+                                      className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95 ml-0.5"
+                                      style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.15)' }}>
+                                      <Trash2 size={12} style={{ color:'#ef4444' }} />
                                     </button>
                                   </div>
-                                  <button onClick={() => deleteOwnExercise(ex.id)}
-                                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95 ml-0.5"
-                                    style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.15)' }}>
-                                    <Trash2 size={12} style={{ color:'#ef4444' }} />
-                                  </button>
+                                )}
+                              </div>
+                              {/* Inline edit row — solo admin/coach */}
+                              {['admin','coach'].includes(userStats.role) ? (
+                                <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
+                                  {[
+                                    { label:'Series',   field:'sets',      type:'number' },
+                                    { label:'Reps',     field:'reps',      type:'text'   },
+                                    { label:'Desc.(s)', field:'rest_time', type:'number' },
+                                  ].map(({ label, field, type }) => (
+                                    <div key={field} className="flex flex-col items-center gap-1">
+                                      <label className="text-[9px] uppercase font-black" style={{ color:'#6B7895' }}>{label}</label>
+                                      <input type={type}
+                                        className="w-full text-center font-black text-sm rounded-xl outline-none py-2"
+                                        style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', color:'#E2E8F0' }}
+                                        value={(ex as any)[field] ?? ''}
+                                        onChange={e => updateOwnLocalEx(ex.id, field, type === 'number' ? Number(e.target.value) : e.target.value)}
+                                        onBlur={() => saveOwnExercise(ex)}
+                                      />
+                                    </div>
+                                  ))}
                                 </div>
-                              </div>
-                              {/* Inline edit row */}
-                              <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
-                                {[
-                                  { label:'Series',   field:'sets',      type:'number' },
-                                  { label:'Reps',     field:'reps',      type:'text'   },
-                                  { label:'Desc.(s)', field:'rest_time', type:'number' },
-                                ].map(({ label, field, type }) => (
-                                  <div key={field} className="flex flex-col items-center gap-1">
-                                    <label className="text-[9px] uppercase font-black" style={{ color:'#6B7895' }}>{label}</label>
-                                    <input type={type}
-                                      className="w-full text-center font-black text-sm rounded-xl outline-none py-2"
-                                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', color:'#E2E8F0' }}
-                                      value={(ex as any)[field] ?? ''}
-                                      onChange={e => updateOwnLocalEx(ex.id, field, type === 'number' ? Number(e.target.value) : e.target.value)}
-                                      onBlur={() => saveOwnExercise(ex)}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
+                              ) : (
+                                /* Read-only pills para users */
+                                <div className="flex items-center gap-2 px-3 pb-3">
+                                  {[
+                                    { label:'Series', value: ex.sets },
+                                    { label:'Reps',   value: ex.reps },
+                                    { label:'Desc.',  value: `${ex.rest_time}s` },
+                                  ].map(({ label, value }) => (
+                                    <div key={label} className="flex-1 flex flex-col items-center gap-0.5 rounded-xl py-1.5"
+                                      style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                                      <span className="text-[8px] uppercase font-black" style={{ color:'#4A5568' }}>{label}</span>
+                                      <span className="font-black text-sm" style={{ color:'#00E5A8' }}>{value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -2008,37 +2039,58 @@ useEffect(() => {
                     ) : (
                       /* ── LISTA DE RUTINAS ── */
                       <div className="space-y-3">
-                        <div className="flex gap-2">
-                          <input
-                            className="flex-1 rounded-xl px-4 py-3 outline-none text-white text-sm font-bold"
-                            style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}
-                            placeholder="Nombre de la rutina..."
-                            value={ownNewRoutineName}
-                            onChange={e => setOwnNewRoutineName(e.target.value)}
-                            onKeyDown={async e => {
-                              if (e.key === 'Enter' && ownNewRoutineName.trim()) {
+                        {/* Crear rutina — solo admin/coach */}
+                        {['admin','coach'].includes(userStats.role) && (
+                          <div className="flex gap-2">
+                            <input
+                              className="flex-1 rounded-xl px-4 py-3 outline-none text-white text-sm font-bold"
+                              style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}
+                              placeholder="Nombre de la rutina..."
+                              value={ownNewRoutineName}
+                              onChange={e => setOwnNewRoutineName(e.target.value)}
+                              onKeyDown={async e => {
+                                if (e.key === 'Enter' && ownNewRoutineName.trim()) {
+                                  await supabase.from('routines').insert([{ name: ownNewRoutineName.trim(), user_id: user.id }])
+                                  setOwnNewRoutineName(''); fetchRoutines(user.id)
+                                }
+                              }}
+                            />
+                            <button
+                              onClick={async () => {
+                                if (!ownNewRoutineName.trim()) return
                                 await supabase.from('routines').insert([{ name: ownNewRoutineName.trim(), user_id: user.id }])
                                 setOwnNewRoutineName(''); fetchRoutines(user.id)
-                              }
-                            }}
-                          />
-                          <button
-                            onClick={async () => {
-                              if (!ownNewRoutineName.trim()) return
-                              await supabase.from('routines').insert([{ name: ownNewRoutineName.trim(), user_id: user.id }])
-                              setOwnNewRoutineName(''); fetchRoutines(user.id)
-                            }}
-                            className="px-4 rounded-xl font-black text-white transition-all active:scale-95 shrink-0 flex items-center gap-1"
-                            style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow:'0 4px 16px rgba(0,229,168,0.3)' }}>
-                            <Plus size={18} />
-                          </button>
-                        </div>
-                        {routines.length === 0 && (
-                          <div className="text-center py-10" style={{ color:'#6B7895' }}>
-                            <Dumbbell size={32} className="mx-auto mb-2 opacity-20" />
-                            <p className="text-xs font-bold uppercase">Sin rutinas</p>
+                              }}
+                              className="px-4 rounded-xl font-black text-white transition-all active:scale-95 shrink-0 flex items-center gap-1"
+                              style={{ background:'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow:'0 4px 16px rgba(0,229,168,0.3)' }}>
+                              <Plus size={18} />
+                            </button>
                           </div>
                         )}
+
+                        {/* Estado vacío */}
+                        {routines.length === 0 && (
+                          userStats.role === 'user' ? (
+                            <div className="flex flex-col items-center text-center py-14 px-6 rounded-2xl gap-4"
+                              style={{ background:'rgba(10,18,32,0.6)', border:'1px dashed rgba(0,229,168,0.15)' }}>
+                              <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                                style={{ background:'rgba(0,229,168,0.06)', border:'1px solid rgba(0,229,168,0.15)' }}>
+                                <Dumbbell size={28} style={{ color:'#00E5A8', opacity:0.4 }} />
+                              </div>
+                              <div>
+                                <p className="font-black text-sm text-white">Tu coach está trabajando</p>
+                                <p className="font-black text-sm" style={{ color:'#00E5A8' }}>en tu estrategia</p>
+                                <p className="text-xs mt-2" style={{ color:'#2A3A55' }}>Pronto tendrás rutinas personalizadas asignadas por tu coach</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-10" style={{ color:'#6B7895' }}>
+                              <Dumbbell size={32} className="mx-auto mb-2 opacity-20" />
+                              <p className="text-xs font-bold uppercase">Sin rutinas</p>
+                            </div>
+                          )
+                        )}
+
                         {routines.map((r: any) => (
                           <button key={r.id} onClick={() => openOwnRoutine(r)}
                             className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl text-left transition-all active:scale-[0.98]"
@@ -2051,7 +2103,7 @@ useEffect(() => {
                               <div className="min-w-0">
                                 <p className="font-black text-sm text-white truncate">{r.name}</p>
                                 <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color:'#6B7895' }}>
-                                  {r.exercises?.length || 0} ejercicios · Toca para gestionar
+                                  {r.exercises?.length || 0} ejercicios · {userStats.role === 'user' ? 'Ver rutina' : 'Toca para gestionar'}
                                 </p>
                               </div>
                             </div>
