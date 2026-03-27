@@ -320,7 +320,7 @@ useEffect(() => {
   const loadOwnRoutineExercises = async (routineId: string) => {
     const { data: rows } = await supabase
       .from('routine_exercises')
-      .select('id, sets, reps, rest_time, exercise_id, order')
+      .select('id, sets, reps, rest_time, weight_kg, exercise_id, order')
       .eq('routine_id', routineId)
       .order('order', { ascending: true })
     if (!rows?.length) return []
@@ -340,7 +340,7 @@ useEffect(() => {
       id: re.id, exercise_id: re.exercise_id,
       name: nameMap[re.exercise_id] || 'Ejercicio',
       gifUrl: gifMap[re.exercise_id],
-      sets: re.sets || 3, reps: re.reps || '10', rest_time: re.rest_time || 60, order: re.order ?? 0,
+      sets: re.sets || 3, reps: re.reps || '10', rest_time: re.rest_time || 60, weight_kg: re.weight_kg || '', order: re.order ?? 0,
     }))
   }
 
@@ -408,6 +408,7 @@ useEffect(() => {
       sets: ownExConfig.sets,
       reps: String(ownExConfig.reps),
       rest_time: ownExConfig.rest_time,
+      weight_kg: '',
       order: maxOrder + 1,
     }])
     setOwnExSearch(''); setSelectedOwnEx(null); setOwnExResults([])
@@ -438,7 +439,7 @@ useEffect(() => {
   }
 
   const saveOwnExercise = async (ex: any) => {
-    await supabase.from('routine_exercises').update({ sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time }).eq('id', ex.id)
+    await supabase.from('routine_exercises').update({ sets: ex.sets, reps: ex.reps, rest_time: ex.rest_time, weight_kg: ex.weight_kg ?? '' }).eq('id', ex.id)
   }
 
   const createOwnCustomExercise = async () => {
@@ -1970,7 +1971,7 @@ useEffect(() => {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-black text-sm text-white leading-tight truncate">{ex.name}</p>
                                   <p className="text-[10px] font-bold mt-0.5" style={{ color:'#6B7895' }}>
-                                    {ex.sets} series · {ex.reps} reps · {ex.rest_time}s
+                                    {ex.sets} series · {ex.reps} reps{ex.weight_kg ? ` · ${ex.weight_kg}kg` : ''} · {ex.rest_time}s
                                   </p>
                                 </div>
                                 {/* Move/delete — solo admin/coach */}
@@ -1996,13 +1997,15 @@ useEffect(() => {
                                   </div>
                                 )}
                               </div>
-                              {/* Inline edit row — solo admin/coach */}
+                              {/* Fila inferior */}
                               {['admin','coach'].includes(userStats.role) ? (
-                                <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
+                                /* Admin/coach — 4 campos editables */
+                                <div className="grid grid-cols-4 gap-1.5 px-3 pb-3">
                                   {[
-                                    { label:'Series',   field:'sets',      type:'number' },
-                                    { label:'Reps',     field:'reps',      type:'text'   },
-                                    { label:'Desc.(s)', field:'rest_time', type:'number' },
+                                    { label:'Series',  field:'sets',      type:'number' },
+                                    { label:'Reps',    field:'reps',      type:'text'   },
+                                    { label:'Kg',      field:'weight_kg', type:'text'   },
+                                    { label:'Desc.(s)',field:'rest_time', type:'number' },
                                   ].map(({ label, field, type }) => (
                                     <div key={field} className="flex flex-col items-center gap-1">
                                       <label className="text-[9px] uppercase font-black" style={{ color:'#6B7895' }}>{label}</label>
@@ -2017,19 +2020,48 @@ useEffect(() => {
                                   ))}
                                 </div>
                               ) : (
-                                /* Read-only pills para users */
-                                <div className="flex items-center gap-2 px-3 pb-3">
-                                  {[
-                                    { label:'Series', value: ex.sets },
-                                    { label:'Reps',   value: ex.reps },
-                                    { label:'Desc.',  value: `${ex.rest_time}s` },
-                                  ].map(({ label, value }) => (
-                                    <div key={label} className="flex-1 flex flex-col items-center gap-0.5 rounded-xl py-1.5"
-                                      style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
-                                      <span className="text-[8px] uppercase font-black" style={{ color:'#4A5568' }}>{label}</span>
-                                      <span className="font-black text-sm" style={{ color:'#00E5A8' }}>{value}</span>
+                                /* User — reps y kg editables, series y descanso de solo lectura */
+                                <div className="px-3 pb-3 space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {/* Reps editable */}
+                                    <div className="rounded-xl p-2 flex flex-col items-center gap-1"
+                                      style={{ background:'rgba(0,229,168,0.05)', border:'1px solid rgba(0,229,168,0.2)' }}>
+                                      <span className="text-[9px] uppercase font-black" style={{ color:'#00E5A8' }}>Reps</span>
+                                      <input type="text"
+                                        className="w-full text-center font-black text-base outline-none bg-transparent"
+                                        style={{ color:'#00E5A8', caretColor:'#00E5A8' }}
+                                        value={ex.reps ?? ''}
+                                        onChange={e => updateOwnLocalEx(ex.id, 'reps', e.target.value)}
+                                        onBlur={() => saveOwnExercise(ex)}
+                                      />
                                     </div>
-                                  ))}
+                                    {/* Kg editable */}
+                                    <div className="rounded-xl p-2 flex flex-col items-center gap-1"
+                                      style={{ background:'rgba(0,194,255,0.05)', border:'1px solid rgba(0,194,255,0.2)' }}>
+                                      <span className="text-[9px] uppercase font-black" style={{ color:'#00C2FF' }}>Kg</span>
+                                      <input type="text" inputMode="decimal"
+                                        className="w-full text-center font-black text-base outline-none bg-transparent"
+                                        style={{ color:'#00C2FF', caretColor:'#00C2FF' }}
+                                        placeholder="—"
+                                        value={ex.weight_kg ?? ''}
+                                        onChange={e => updateOwnLocalEx(ex.id, 'weight_kg', e.target.value)}
+                                        onBlur={() => saveOwnExercise(ex)}
+                                      />
+                                    </div>
+                                  </div>
+                                  {/* Series y descanso — solo lectura */}
+                                  <div className="flex items-center gap-2">
+                                    {[
+                                      { label:'Series', value: ex.sets },
+                                      { label:'Descanso', value: `${ex.rest_time}s` },
+                                    ].map(({ label, value }) => (
+                                      <div key={label} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-1.5"
+                                        style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                                        <span className="text-[9px] uppercase font-black" style={{ color:'#4A5568' }}>{label}</span>
+                                        <span className="font-black text-sm" style={{ color:'#6B7895' }}>{value}</span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                             </div>
