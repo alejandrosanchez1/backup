@@ -31,3 +31,8 @@ create policy "Users can update own workouts"
 create policy "Users can delete own workouts"
   on public.workouts for delete
   using (auth.uid() = user_id);
+
+-- Migración: agregar columna water_goal a nutrition_plans
+-- Ejecutar en el SQL Editor de Supabase si la tabla ya existe
+alter table public.nutrition_plans
+  add column if not exists water_goal integer not null default 8;

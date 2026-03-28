@@ -64,6 +64,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
   const [activeTab, setActiveTab]       = useState<'profile'|'nutrition'|'routines'|'notas'|'config'>('profile')
   const [meals, setMeals]               = useState<Meal[]>([])
+  const [waterGoal, setWaterGoal]       = useState(8)
   const [routines, setRoutines]         = useState<Routine[]>([])
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null)
   const [editProfile, setEditProfile]   = useState<Partial<Profile>>({})
@@ -173,6 +174,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     setSelectedRoutine(null)
     const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', user.id).single()
     setMeals(nut?.meals || MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })))
+    setWaterGoal(nut?.water_goal || 8)
     await loadRoutines(user.id)
   }
 
@@ -435,8 +437,8 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     if (!selectedUser) return
     setSaving(true)
     const { data: ex } = await db.from('nutrition_plans').select('id').eq('user_id', selectedUser.id).single()
-    if (ex) await db.from('nutrition_plans').update({ meals }).eq('user_id', selectedUser.id)
-    else    await db.from('nutrition_plans').insert([{ user_id: selectedUser.id, meals }])
+    if (ex) await db.from('nutrition_plans').update({ meals, water_goal: waterGoal }).eq('user_id', selectedUser.id)
+    else    await db.from('nutrition_plans').insert([{ user_id: selectedUser.id, meals, water_goal: waterGoal }])
     setSaving(false); toast('Nutrición guardada')
   }
   const updateMeal = (i: number, type: 'protein'|'carbs'|'fat', val: string) =>
@@ -1254,6 +1256,30 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
         {/* ── TAB: NUTRITION ── */}
         {activeTab === 'nutrition' && (
           <div className="space-y-4">
+            {/* Meta de agua */}
+            <div style={card} className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">💧</span>
+                  <label style={lbl} className="!mb-0">Meta de Agua (vasos/día)</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWaterGoal(g => Math.max(1, g - 1))}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white transition-all active:scale-95"
+                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >−</button>
+                  <span className="w-8 text-center font-black text-white text-lg">{waterGoal}</span>
+                  <button
+                    type="button"
+                    onClick={() => setWaterGoal(g => Math.min(20, g + 1))}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white transition-all active:scale-95"
+                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >+</button>
+                </div>
+              </div>
+            </div>
             {meals.map((meal, i) => (
               <div key={i} style={card} className="overflow-hidden">
                 <div className="px-5 py-3" style={{ borderBottom:'1px solid rgba(255,255,255,0.05)', background:'rgba(0,229,168,0.05)' }}>

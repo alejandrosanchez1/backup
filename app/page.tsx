@@ -96,6 +96,14 @@ export default function GymProApp() {
   const [ownNewEx, setOwnNewEx]                     = useState({ name: '', target: '' })
   const [ownCreatingEx, setOwnCreatingEx]           = useState(false)
 
+  // ── Own nutrition management (settings Nutricion tab for coach) ─────────────
+  const MEAL_NAMES_OWN = ['Desayuno', 'Media Mañana', 'Almuerzo', 'Media Tarde', 'Cena']
+  type OwnMeal = { name: string; protein: string[]; carbs: string[]; fat: string[] }
+  const [ownMeals, setOwnMeals]                     = useState<OwnMeal[]>([])
+  const [ownWaterGoal, setOwnWaterGoal]             = useState(8)
+  const [ownNutritionSaving, setOwnNutritionSaving] = useState(false)
+  const [ownNutritionLoaded, setOwnNutritionLoaded] = useState(false)
+
   const [userStats, setUserStats] = useState({
     name: 'Atleta', age: '25', gender: 'Hombre', weight: '75', height: '1.75', focus: [] as string[],
     injuries: '', dietStyle: 'Equilibrada', experienceLevel: '', trainingDays: '5', role: 'user',
@@ -616,6 +624,28 @@ useEffect(() => {
     setIsSaving(false);
     Toast.show({ text: 'Guardado' });
   };
+
+  const loadOwnNutrition = async () => {
+    if (!user || ownNutritionLoaded) return
+    const { data } = await supabase.from('nutrition_plans').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1)
+    const plan = data?.[0]
+    setOwnMeals(plan?.meals?.length ? plan.meals : MEAL_NAMES_OWN.map((n: string) => ({ name: n, protein: [], carbs: [], fat: [] })))
+    setOwnWaterGoal(plan?.water_goal || 8)
+    setOwnNutritionLoaded(true)
+  }
+
+  const saveOwnNutrition = async () => {
+    if (!user) return
+    setOwnNutritionSaving(true)
+    const { data: ex } = await supabase.from('nutrition_plans').select('id').eq('user_id', user.id).single()
+    if (ex) await supabase.from('nutrition_plans').update({ meals: ownMeals, water_goal: ownWaterGoal }).eq('user_id', user.id)
+    else    await supabase.from('nutrition_plans').insert([{ user_id: user.id, meals: ownMeals, water_goal: ownWaterGoal }])
+    setOwnNutritionSaving(false)
+    Toast.show({ text: 'Nutrición guardada' })
+  }
+
+  const updateOwnMeal = (i: number, type: 'protein'|'carbs'|'fat', val: string) =>
+    setOwnMeals(prev => prev.map((m, j) => j === i ? { ...m, [type]: val.split('\n').filter(Boolean) } : m))
 
   const saveWithHistory = async () => {
     setIsSaving(true);
@@ -1512,7 +1542,7 @@ useEffect(() => {
               {/* Tabs — solo admin/coach ven todas; user solo ve rutinas */}
               {['admin','coach'].includes(userStats.role) && (
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                  {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas', ...(userStats.role === 'coach' ? ['nutricion'] : [])].map(tab => (
+                  {[...(userStats.role === 'coach' ? [] : ['general']), 'objetivos', 'antropometria', 'rutinas', 'notas', 'nutricion'].map(tab => (
                     <button
                       key={tab}
                       onClick={() => setActiveSettingsTab(tab)}
@@ -1522,7 +1552,7 @@ useEffect(() => {
                         : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7895' }
                       }
                     >
-                      {tab === 'notas' ? 'Notas' : t(tab as any)}
+                      {tab === 'notas' ? 'Notas' : tab === 'nutricion' ? 'Nutrición' : t(tab as any)}
                     </button>
                   ))}
                 </div>
@@ -2154,10 +2184,68 @@ useEffect(() => {
                   </div>
                 )}
 
-              {/* TAB NUTRICION (coach) */}
-              {activeSettingsTab === 'nutricion' && (
-                <NutritionView userId={user?.id} supabase={supabase} />
-              )}
+              {/* TAB NUTRICION — coach/admin gestiona su propia nutrición */}
+              {activeSettingsTab === 'nutricion' && ['admin','coach'].includes(userStats.role) && (() => {
+                if (!ownNutritionLoaded) { loadOwnNutrition() }
+                return (
+                  <div className="space-y-4">
+                    {/* Meta de agua */}
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold mb-3" style={{ color: '#6B7895' }}>💧 Meta de Agua (vasos/día)</label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setOwnWaterGoal(g => Math.max(1, g - 1))}
+                          className="w-10 h-10 rounded-xl font-black text-white text-lg transition-all active:scale-95"
+                          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+                        >−</button>
+                        <span className="text-2xl font-black text-white w-8 text-center">{ownWaterGoal}</span>
+                        <button
+                          type="button"
+                          onClick={() => setOwnWaterGoal(g => Math.min(20, g + 1))}
+                          className="w-10 h-10 rounded-xl font-black text-white text-lg transition-all active:scale-95"
+                          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+                        >+</button>
+                        <span className="text-xs text-gray-500 uppercase font-bold">vasos por día</span>
+                      </div>
+                    </div>
+
+                    {/* Comidas */}
+                    {ownMeals.map((meal, i) => (
+                      <div key={i} className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,229,168,0.05)' }}>
+                          <h2 className="font-black uppercase text-sm" style={{ color: '#00E5A8' }}>{meal.name}</h2>
+                        </div>
+                        <div className="p-4 space-y-4">
+                          {(['protein','carbs','fat'] as const).map(type => (
+                            <div key={type}>
+                              <label className="block text-[10px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>
+                                {type === 'protein' ? '🥩 Proteína' : type === 'carbs' ? '🌾 Carbohidrato' : '🥑 Grasa'} — uno por línea
+                              </label>
+                              <textarea
+                                className="w-full rounded-xl p-3 outline-none text-white resize-none"
+                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', height: 80, fontSize: 13, lineHeight: '1.6' }}
+                                value={meal[type].join('\n')}
+                                onChange={e => updateOwnMeal(i, type, e.target.value)}
+                                placeholder="Ej: Pollo (100g)"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      onClick={saveOwnNutrition}
+                      disabled={ownNutritionSaving}
+                      className="w-full py-4 rounded-2xl font-black text-sm uppercase text-white flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 8px 24px rgba(0,229,168,0.4)' }}
+                    >
+                      <Save size={16} /> {ownNutritionSaving ? 'Guardando...' : 'Guardar Nutrición'}
+                    </button>
+                  </div>
+                )
+              })()}
 
               {/* TAB NOTAS — solo admin/coach */}
               {activeSettingsTab === 'notas' && ['admin','coach'].includes(userStats.role) && (
@@ -2291,7 +2379,7 @@ useEffect(() => {
           )}
 
         {currentView === 'nutrition' && (
-          <NutritionView userId={user?.id} supabase={supabase} />
+          <NutritionView userId={user?.id} supabase={supabase} userRole={userStats.role} />
         )}
 
 

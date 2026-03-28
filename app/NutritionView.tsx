@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Utensils } from 'lucide-react'
+import { Utensils, Pencil, Check, X } from 'lucide-react'
 
 const DEFAULT_SALADS = [
   { name: "🌴 Tropical Caribe", ingredients: "Papaya, mango, pepino, limón, semillas de chía", benefit: "Digestiva y antiinflamatoria" },
@@ -18,12 +18,25 @@ const MEAL_ICONS: Record<string, string> = {
   'Cena': '🌙',
 }
 
-const WATER_GOAL = 8
+const DEFAULT_WATER_GOAL = 8
 
-export default function NutritionView({ userId, supabase }: { userId: string | undefined; supabase: any }) {
+export default function NutritionView({
+  userId,
+  supabase,
+  userRole,
+}: {
+  userId: string | undefined
+  supabase: any
+  userRole?: string
+}) {
   const [plan, setPlan] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [water, setWater] = useState(0)
+  const [editingGoal, setEditingGoal] = useState(false)
+  const [goalInput, setGoalInput] = useState(DEFAULT_WATER_GOAL)
+  const [savingGoal, setSavingGoal] = useState(false)
+
+  const canEdit = userRole === 'coach' || userRole === 'admin'
 
   useEffect(() => {
     if (!userId) {
@@ -42,6 +55,27 @@ export default function NutritionView({ userId, supabase }: { userId: string | u
         setLoading(false)
       })
   }, [userId])
+
+  const waterGoal = plan?.water_goal || DEFAULT_WATER_GOAL
+
+  const openEditGoal = () => {
+    setGoalInput(waterGoal)
+    setEditingGoal(true)
+  }
+
+  const saveWaterGoal = async () => {
+    if (!userId) return
+    setSavingGoal(true)
+    const { data: ex } = await supabase.from('nutrition_plans').select('id').eq('user_id', userId).single()
+    if (ex) {
+      await supabase.from('nutrition_plans').update({ water_goal: goalInput }).eq('user_id', userId)
+    } else {
+      await supabase.from('nutrition_plans').insert([{ user_id: userId, water_goal: goalInput, meals: [] }])
+    }
+    setPlan((prev: any) => ({ ...(prev || {}), water_goal: goalInput }))
+    setSavingGoal(false)
+    setEditingGoal(false)
+  }
 
   if (loading) {
     return (
@@ -74,10 +108,43 @@ export default function NutritionView({ userId, supabase }: { userId: string | u
             <span className="text-xl">💧</span>
             <p className="font-black uppercase text-sm text-blue-400">Agua del día</p>
           </div>
-          <p className="text-sm font-bold text-gray-400">{water} / {WATER_GOAL} vasos</p>
+          <div className="flex items-center gap-2">
+            {editingGoal ? (
+              <>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={goalInput}
+                  onChange={e => setGoalInput(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                  className="w-14 text-center rounded-lg bg-gray-700 border border-gray-600 text-white text-xs font-bold py-1 outline-none"
+                />
+                <span className="text-xs text-gray-400">vasos</span>
+                <button
+                  onClick={saveWaterGoal}
+                  disabled={savingGoal}
+                  className="p-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  <Check size={13} className="text-white" />
+                </button>
+                <button onClick={() => setEditingGoal(false)} className="p-1 rounded-lg bg-gray-700 hover:bg-gray-600">
+                  <X size={13} className="text-gray-300" />
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-gray-400">{water} / {waterGoal} vasos</p>
+                {canEdit && (
+                  <button onClick={openEditGoal} className="p-1 rounded-lg bg-gray-700 hover:bg-gray-600">
+                    <Pencil size={12} className="text-gray-400" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 mb-3">
-          {Array.from({ length: WATER_GOAL }).map((_, i) => (
+          {Array.from({ length: waterGoal }).map((_, i) => (
             <div
               key={i}
               onClick={() => setWater(i + 1)}
@@ -88,7 +155,7 @@ export default function NutritionView({ userId, supabase }: { userId: string | u
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setWater(w => Math.min(w + 1, WATER_GOAL))}
+            onClick={() => setWater(w => Math.min(w + 1, waterGoal))}
             className="flex-1 bg-blue-600 hover:bg-blue-500 rounded-xl py-2 text-xs font-black uppercase"
           >
             + Vaso
@@ -104,7 +171,7 @@ export default function NutritionView({ userId, supabase }: { userId: string | u
       </div>
 
       {/* Comidas */}
-      {plan.meals.map((meal: any, i: number) => (
+      {plan.meals?.map((meal: any, i: number) => (
         <div key={i} className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
           <div className="bg-gray-700/50 px-4 py-3 flex items-center gap-3">
             <span className="text-xl">{MEAL_ICONS[meal.name] || '🍴'}</span>
