@@ -2,13 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Utensils, Pencil, Check, X } from 'lucide-react'
 
-const DEFAULT_SALADS = [
-  { name: "🌴 Tropical Caribe", ingredients: "Papaya, mango, pepino, limón, semillas de chía", benefit: "Digestiva y antiinflamatoria" },
-  { name: "🥕 Andina Energética", ingredients: "Zanahoria rallada, papa criolla, espinaca baby, aguacate", benefit: "Rica en potasio" },
-  { name: "🌽 Campesina Suave", ingredients: "Maíz tierno, tomate cherry, pepino, aceite de oliva", benefit: "Aporte de fibra moderada" },
-  { name: "🍍 Dulce del Valle", ingredients: "Piña, manzana verde, semillas de girasol", benefit: "Enzimas digestivas" },
-  { name: "🥑 Pacífica Proteica", ingredients: "Aguacate, tomate, pepino, atún desmenuzado", benefit: "Alta en omega y proteínas" },
-]
+const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
 const MEAL_ICONS: Record<string, string> = {
   'Desayuno': '🌅',
@@ -35,6 +29,7 @@ export default function NutritionView({
   const [editingGoal, setEditingGoal] = useState(false)
   const [goalInput, setGoalInput] = useState(DEFAULT_WATER_GOAL)
   const [savingGoal, setSavingGoal] = useState(false)
+  const [activeDayIdx, setActiveDayIdx] = useState(0)
 
   const canEdit = userRole === 'coach' || userRole === 'admin'
 
@@ -95,7 +90,7 @@ export default function NutritionView({
     )
   }
 
-  const salads = plan.salads?.length > 0 ? plan.salads : DEFAULT_SALADS
+  const salads: any[] = plan.salads?.length > 0 ? plan.salads : []
 
   return (
     <div className="space-y-4 animate-in fade-in pb-28">
@@ -170,8 +165,8 @@ export default function NutritionView({
         </div>
       </div>
 
-      {/* Comidas */}
-      {plan.meals?.map((meal: any, i: number) => (
+      {/* ── FORMATO: NUTRICIÓN EN SELECT ── */}
+      {plan.nutrition_format !== 'days' && plan.meals?.map((meal: any, i: number) => (
         <div key={i} className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
           <div className="bg-gray-700/50 px-4 py-3 flex items-center gap-3">
             <span className="text-xl">{MEAL_ICONS[meal.name] || '🍴'}</span>
@@ -198,22 +193,74 @@ export default function NutritionView({
         </div>
       ))}
 
-      {/* Ensaladas */}
-      <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-        <div className="bg-gray-700/50 px-4 py-3 flex items-center gap-3">
-          <span className="text-xl">🥗</span>
-          <h2 className="font-black uppercase text-sm text-emerald-400">Ensaladas Recomendadas</h2>
+      {/* ── FORMATO: NUTRICIÓN X DÍAS ── */}
+      {plan.nutrition_format === 'days' && plan.days_plan?.length > 0 && (
+        <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+          {/* Tabs de días */}
+          <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-700">
+            {DAY_NAMES.map((day, di) => (
+              <button key={day} onClick={() => setActiveDayIdx(di)}
+                className="flex-shrink-0 px-4 py-3 font-black text-xs uppercase tracking-wide transition-all"
+                style={activeDayIdx === di
+                  ? { borderBottom:'2px solid #10b981', color:'#10b981', background:'rgba(16,185,129,0.05)' }
+                  : { borderBottom:'2px solid transparent', color:'#6b7280' }}>
+                {day.slice(0,3)}
+              </button>
+            ))}
+          </div>
+          {/* Comidas del día activo */}
+          <div className="p-4 space-y-3">
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-2">
+              {DAY_NAMES[activeDayIdx]}
+            </p>
+            {plan.days_plan[activeDayIdx]?.meals?.map((meal: any, mi: number) => (
+              <div key={mi} className="bg-gray-900 rounded-2xl border border-gray-700 overflow-hidden">
+                <div className="bg-gray-700/40 px-4 py-2.5 flex items-center gap-2">
+                  <span>{MEAL_ICONS[meal.name] || '🍴'}</span>
+                  <h3 className="font-black uppercase text-xs text-emerald-400">{meal.name}</h3>
+                </div>
+                <div className="p-3 space-y-2">
+                  {(['protein', 'carbs', 'fat'] as const).map((type) =>
+                    meal[type]?.length > 0 ? (
+                      <div key={type}>
+                        <p className="text-[10px] text-gray-500 uppercase font-black mb-1.5">
+                          {type === 'protein' ? '🥩 Proteína' : type === 'carbs' ? '🌾 Carbohidrato' : '🥑 Grasa'}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {meal[type].map((item: string, j: number) => (
+                            <span key={j} className="bg-gray-800 border border-gray-700 rounded-xl px-2.5 py-1 text-xs text-gray-300">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="p-4 space-y-3">
-          {salads.map((salad: any, i: number) => (
-            <div key={i} className="bg-gray-900 rounded-xl p-3 border border-gray-700">
-              <p className="font-bold text-sm text-white mb-1">{salad.name}</p>
-              <p className="text-xs text-gray-400 mb-1">{salad.ingredients}</p>
-              <p className="text-[10px] text-emerald-500 uppercase font-bold">{salad.benefit}</p>
-            </div>
-          ))}
+      )}
+
+      {/* Ensaladas — solo si el coach/admin las activó */}
+      {salads.length > 0 && (
+        <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+          <div className="bg-gray-700/50 px-4 py-3 flex items-center gap-3">
+            <span className="text-xl">🥗</span>
+            <h2 className="font-black uppercase text-sm text-emerald-400">Ensaladas Recomendadas</h2>
+          </div>
+          <div className="p-4 space-y-3">
+            {salads.map((salad: any, i: number) => (
+              <div key={i} className="bg-gray-900 rounded-xl p-3 border border-gray-700">
+                <p className="font-bold text-sm text-white mb-1">{salad.name}</p>
+                <p className="text-xs text-gray-400 mb-1">{salad.ingredients}</p>
+                <p className="text-[10px] text-emerald-500 uppercase font-bold">{salad.benefit}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

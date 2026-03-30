@@ -29,10 +29,20 @@ type Profile = {
   }
 }
 type Meal = { name: string; protein: string[]; carbs: string[]; fat: string[] }
+type DayPlan = { day: string; meals: Meal[] }
 type RoutineEx = { id: number; exercise_id: string; name: string; target?: string; gifUrl?: string; sets: number; reps: string; rest_time: number; order: number }
 type Routine   = { id: string; name: string; exercises: RoutineEx[] }
 
 const MEAL_NAMES    = ['Desayuno', 'Media Mañana', 'Almuerzo', 'Media Tarde', 'Cena']
+const DAY_NAMES     = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const emptyDaysPlan = (): DayPlan[] => DAY_NAMES.map(day => ({ day, meals: MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })) }))
+const DEFAULT_SALADS = [
+  { name: "🌴 Tropical Caribe", ingredients: "Papaya, mango, pepino, limón, semillas de chía", benefit: "Digestiva y antiinflamatoria" },
+  { name: "🥕 Andina Energética", ingredients: "Zanahoria rallada, papa criolla, espinaca baby, aguacate", benefit: "Rica en potasio" },
+  { name: "🌽 Campesina Suave", ingredients: "Maíz tierno, tomate cherry, pepino, aceite de oliva", benefit: "Aporte de fibra moderada" },
+  { name: "🍍 Dulce del Valle", ingredients: "Piña, manzana verde, semillas de girasol", benefit: "Enzimas digestivas" },
+  { name: "🥑 Pacífica Proteica", ingredients: "Aguacate, tomate, pepino, atún desmenuzado", benefit: "Alta en omega y proteínas" },
+]
 const FOCUS_OPTIONS = ['Hipertrofia', 'Fuerza', 'Pérdida de Grasa', 'Resistencia', 'Salud']
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -62,9 +72,15 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const [users, setUsers]               = useState<Profile[]>([])
   const [loading, setLoading]           = useState(true)
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
-  const [activeTab, setActiveTab]       = useState<'profile'|'nutrition'|'routines'|'notas'|'config'>('profile')
+  const [activeTab, setActiveTab]       = useState<'profile'|'nutrition'|'routines'|'notas'|'config'|'control'>('profile')
   const [meals, setMeals]               = useState<Meal[]>([])
   const [waterGoal, setWaterGoal]       = useState(8)
+  const [includeSalads, setIncludeSalads] = useState(false)
+  const [nutritionFormat, setNutritionFormat] = useState<'select'|'days'>('select')
+  const [daysMeals, setDaysMeals]       = useState<DayPlan[]>(emptyDaysPlan())
+  const [activeDayIdx, setActiveDayIdx] = useState(0)
+  const [userWorkoutLogs, setUserWorkoutLogs] = useState<any[]>([])
+  const [controlMonth, setControlMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
   const [routines, setRoutines]         = useState<Routine[]>([])
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null)
   const [editProfile, setEditProfile]   = useState<Partial<Profile>>({})
@@ -88,6 +104,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const [newEx, setNewEx]                   = useState({ name: '', target: '' })
   const [creatingEx, setCreatingEx]         = useState(false)
   const searchRef                           = useRef<HTMLInputElement>(null)
+  const exSearchIdRef                       = useRef(0)
 
   // ── Coach branding ────────────────────────────────────────────────────────
   const [coachLogo, setCoachLogo]         = useState<string | null>(null)
@@ -175,7 +192,14 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', user.id).single()
     setMeals(nut?.meals || MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })))
     setWaterGoal(nut?.water_goal || 8)
+    setIncludeSalads(Array.isArray(nut?.salads) && nut.salads.length > 0)
+    setNutritionFormat(nut?.nutrition_format === 'days' ? 'days' : 'select')
+    setDaysMeals(nut?.days_plan?.length ? nut.days_plan : emptyDaysPlan())
+    setActiveDayIdx(0)
     await loadRoutines(user.id)
+    const { data: logs } = await db.from('workout_logs').select('created_at, routine_name, duration, total_sets').eq('user_id', user.id).order('created_at', { ascending: false })
+    setUserWorkoutLogs(logs || [])
+    setControlMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   }
 
   // ── Routines ─────────────────────────────────────────────────────────────
@@ -266,11 +290,19 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     setSelectedEx(null)
     if (q.trim().length < 2) { setExResults([]); return }
 
+    const callId = ++exSearchIdRef.current
+
+    const words = q.trim().split(/\s+/).filter(Boolean)
+    let customQ = db.from('custom_exercises').select('id, name, target')
+    let allQ = db.from('all_exercises').select('id, name, target, "gifUrl"')
+    words.forEach(w => { customQ = customQ.ilike('name', `%${w}%`); allQ = allQ.ilike('name', `%${w}%`) })
     const [customExRes, allExRes, apiRes] = await Promise.allSettled([
-      db.from('custom_exercises').select('id, name, target').ilike('name', `%${q.trim()}%`).limit(5),
-      db.from('all_exercises').select('id, name, target, "gifUrl"').ilike('name', `%${q.trim()}%`).limit(5),
+      customQ.limit(5),
+      allQ.limit(5),
       fetchExercises({ search: q.trim(), limit: 10 }),
     ])
+
+    if (callId !== exSearchIdRef.current) return
 
     const customEx = customExRes.status === 'fulfilled' ? customExRes.value.data || [] : []
     const allEx    = allExRes.status === 'fulfilled'    ? allExRes.value.data || []    : []
@@ -288,7 +320,14 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
       }))
     })()
 
-    setExResults([...customEx, ...allEx, ...apiEx])
+    const seen = new Set<string>()
+    const deduped = [...customEx, ...allEx, ...apiEx].filter((e: any) => {
+      const key = String(e.id)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    setExResults(deduped)
   }
 
   const pickExercise = async (ex: any) => {
@@ -436,13 +475,22 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const saveNutrition = async () => {
     if (!selectedUser) return
     setSaving(true)
+    const salads = includeSalads ? DEFAULT_SALADS : []
+    const payload: any = { water_goal: waterGoal, salads, nutrition_format: nutritionFormat }
+    if (nutritionFormat === 'days') payload.days_plan = daysMeals
+    else payload.meals = meals
     const { data: ex } = await db.from('nutrition_plans').select('id').eq('user_id', selectedUser.id).single()
-    if (ex) await db.from('nutrition_plans').update({ meals, water_goal: waterGoal }).eq('user_id', selectedUser.id)
-    else    await db.from('nutrition_plans').insert([{ user_id: selectedUser.id, meals, water_goal: waterGoal }])
+    if (ex) await db.from('nutrition_plans').update(payload).eq('user_id', selectedUser.id)
+    else    await db.from('nutrition_plans').insert([{ user_id: selectedUser.id, ...payload }])
     setSaving(false); toast('Nutrición guardada')
   }
   const updateMeal = (i: number, type: 'protein'|'carbs'|'fat', val: string) =>
     setMeals(prev => prev.map((m, j) => j === i ? { ...m, [type]: val.split('\n').filter(Boolean) } : m))
+
+  const updateDayMeal = (dayIdx: number, mealIdx: number, type: 'protein'|'carbs'|'fat', val: string) =>
+    setDaysMeals(prev => prev.map((d, di) => di !== dayIdx ? d : {
+      ...d, meals: d.meals.map((m, mi) => mi !== mealIdx ? m : { ...m, [type]: val.split('\n').filter(Boolean) })
+    }))
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) return (
@@ -581,7 +629,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                               className="flex-1 bg-transparent outline-none py-3.5 text-sm text-white font-bold placeholder:font-normal placeholder:text-slate-600"
                               style={{ caretColor:'#00E5A8' }}
                               placeholder="bench press, squat, curl…"
-                              value={exSearch.trim()}
+                              value={exSearch}
                               onChange={e => searchExercises(e.target.value)}
                             />
                             {exSearch.trim() && (
@@ -608,7 +656,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                             </div>
                           )}
                           {exResults.map((ex: any, i: number) => (
-                            <button key={ex.id} onClick={() => pickExercise(ex)}
+                            <button key={ex.id ?? `ex-${i}`} onClick={() => pickExercise(ex)}
                               className="w-full text-left flex items-center transition-all active:scale-[0.98]"
                               style={{ borderBottom: i < exResults.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
                               onMouseEnter={e => (e.currentTarget.style.background='rgba(0,229,168,0.06)')}
@@ -950,6 +998,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
       { key: 'nutrition', label: 'Nutrición'       },
       { key: 'routines',  label: 'Rutinas'         },
       { key: 'notas',     label: 'Notas'           },
+      { key: 'control',   label: 'Control'         },
       ...(isCoach ? [{ key: 'config', label: 'Configuración' }] : []),
     ] as const
 
@@ -1256,6 +1305,27 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
         {/* ── TAB: NUTRITION ── */}
         {activeTab === 'nutrition' && (
           <div className="space-y-4">
+
+            {/* Selector de formato */}
+            <div style={card} className="p-4">
+              <p className="text-[10px] uppercase font-black tracking-widest mb-3" style={{ color:'#6B7895' }}>Formato del Plan</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(['select','days'] as const).map(fmt => (
+                  <button
+                    key={fmt}
+                    type="button"
+                    onClick={() => setNutritionFormat(fmt)}
+                    className="py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wide transition-all active:scale-95"
+                    style={nutritionFormat === fmt
+                      ? { background:'rgba(0,229,168,0.15)', border:'1px solid #00E5A8', color:'#00E5A8' }
+                      : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#6B7895' }}
+                  >
+                    {fmt === 'select' ? '📋 Nutrición en Select' : '📅 Nutrición x Días'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Meta de agua */}
             <div style={card} className="p-5">
               <div className="flex items-center justify-between">
@@ -1264,23 +1334,19 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                   <label style={lbl} className="!mb-0">Meta de Agua (vasos/día)</label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setWaterGoal(g => Math.max(1, g - 1))}
+                  <button type="button" onClick={() => setWaterGoal(g => Math.max(1, g - 1))}
                     className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white transition-all active:scale-95"
-                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  >−</button>
+                    style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.1)' }}>−</button>
                   <span className="w-8 text-center font-black text-white text-lg">{waterGoal}</span>
-                  <button
-                    type="button"
-                    onClick={() => setWaterGoal(g => Math.min(20, g + 1))}
+                  <button type="button" onClick={() => setWaterGoal(g => Math.min(20, g + 1))}
                     className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white transition-all active:scale-95"
-                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  >+</button>
+                    style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.1)' }}>+</button>
                 </div>
               </div>
             </div>
-            {meals.map((meal, i) => (
+
+            {/* ── FORMATO: NUTRICIÓN EN SELECT ── */}
+            {nutritionFormat === 'select' && meals.map((meal, i) => (
               <div key={i} style={card} className="overflow-hidden">
                 <div className="px-5 py-3" style={{ borderBottom:'1px solid rgba(255,255,255,0.05)', background:'rgba(0,229,168,0.05)' }}>
                   <h2 className="font-black uppercase text-sm" style={{ color:'#00E5A8' }}>{meal.name}</h2>
@@ -1296,6 +1362,68 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                 </div>
               </div>
             ))}
+
+            {/* ── FORMATO: NUTRICIÓN X DÍAS ── */}
+            {nutritionFormat === 'days' && (
+              <div style={card} className="overflow-hidden">
+                {/* Tabs de días */}
+                <div className="flex overflow-x-auto scrollbar-hide" style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                  {DAY_NAMES.map((day, di) => (
+                    <button key={day} type="button" onClick={() => setActiveDayIdx(di)}
+                      className="flex-shrink-0 px-4 py-3 font-black text-xs uppercase tracking-wide transition-all"
+                      style={activeDayIdx === di
+                        ? { borderBottom:'2px solid #00E5A8', color:'#00E5A8', background:'rgba(0,229,168,0.05)' }
+                        : { borderBottom:'2px solid transparent', color:'#6B7895' }}>
+                      {day.slice(0,3)}
+                    </button>
+                  ))}
+                </div>
+                {/* Comidas del día activo */}
+                <div className="p-4 space-y-4">
+                  <p className="text-xs font-black uppercase tracking-widest" style={{ color:'#00E5A8' }}>
+                    {DAY_NAMES[activeDayIdx]}
+                  </p>
+                  {daysMeals[activeDayIdx]?.meals.map((meal, mi) => (
+                    <div key={mi} className="rounded-2xl overflow-hidden" style={{ border:'1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="px-4 py-2.5" style={{ background:'rgba(255,255,255,0.03)' }}>
+                        <p className="font-black text-xs uppercase" style={{ color:'#A8B3CF' }}>{meal.name}</p>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {(['protein','carbs','fat'] as const).map(type => (
+                          <div key={type}>
+                            <label style={lbl}>{type==='protein'?'🥩 Proteína':type==='carbs'?'🌾 Carbohidrato':'🥑 Grasa'} — una por línea</label>
+                            <textarea className="resize-none" style={{...inp, height:70, fontSize:12, lineHeight:'1.6'} as React.CSSProperties}
+                              value={meal[type].join('\n')}
+                              onChange={e => updateDayMeal(activeDayIdx, mi, type, e.target.value)}
+                              placeholder="Ej: Pollo (100g)" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Toggle Ensaladas */}
+            <div style={card} className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🥗</span>
+                  <div>
+                    <p className="font-black text-sm text-white">Ensaladas Recomendadas</p>
+                    <p className="text-[10px] font-bold" style={{ color:'#6B7895' }}>Incluir sección en el plan del usuario</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setIncludeSalads(v => !v)}
+                  className="w-12 h-6 rounded-full transition-all duration-200 relative flex-shrink-0"
+                  style={{ background: includeSalads ? '#00E5A8' : 'rgba(255,255,255,0.1)' }}>
+                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all duration-200 shadow"
+                    style={{ left: includeSalads ? '26px' : '2px' }} />
+                </button>
+              </div>
+            </div>
+
             <button onClick={saveNutrition} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 } as React.CSSProperties} className="transition-all active:scale-[0.97]">
               <Save size={16} /> {saving ? 'Guardando...' : 'Guardar Nutrición'}
             </button>
@@ -1378,6 +1506,96 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
             </button>
           </div>
         )}
+
+        {/* ── TAB: CONTROL ── */}
+        {activeTab === 'control' && (() => {
+          const trainedDates = new Set(userWorkoutLogs.map(l => new Date(l.created_at).toDateString()))
+          const year  = controlMonth.getFullYear()
+          const month = controlMonth.getMonth()
+          const firstDay = new Date(year, month, 1).getDay() // 0=Sun
+          const daysInMonth = new Date(year, month + 1, 0).getDate()
+          const startOffset = (firstDay + 6) % 7 // start week on Monday
+          const cells = startOffset + daysInMonth
+          const totalRows = Math.ceil(cells / 7)
+
+          const totalTrainings = userWorkoutLogs.length
+          const now = new Date()
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+          const thisMonthCount = userWorkoutLogs.filter(l => new Date(l.created_at) >= startOfMonth).length
+          const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7))
+          const thisWeekCount = userWorkoutLogs.filter(l => new Date(l.created_at) >= startOfWeek).length
+
+          const monthName = controlMonth.toLocaleDateString('es-ES', { month:'long', year:'numeric' })
+
+          return (
+            <div className="space-y-4">
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label:'Esta semana', value: thisWeekCount, icon:'💪' },
+                  { label:'Este mes',    value: thisMonthCount, icon:'📅' },
+                  { label:'Total',       value: totalTrainings, icon:'🏆' },
+                ].map(s => (
+                  <div key={s.label} style={card} className="p-3 text-center">
+                    <p className="text-xl mb-1">{s.icon}</p>
+                    <p className="text-2xl font-black text-white">{s.value}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color:'#6B7895' }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendario */}
+              <div style={card} className="overflow-hidden">
+                {/* Cabecera mes */}
+                <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+                  <button type="button"
+                    onClick={() => setControlMonth(new Date(year, month - 1, 1))}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                    style={{ background:'rgba(255,255,255,0.06)' }}>
+                    <ChevronUp size={14} style={{ color:'#A8B3CF', transform:'rotate(-90deg)' }} />
+                  </button>
+                  <p className="font-black text-sm uppercase tracking-wider text-white capitalize">{monthName}</p>
+                  <button type="button"
+                    onClick={() => setControlMonth(new Date(year, month + 1, 1))}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                    style={{ background:'rgba(255,255,255,0.06)' }}>
+                    <ChevronDown size={14} style={{ color:'#A8B3CF', transform:'rotate(-90deg)' }} />
+                  </button>
+                </div>
+
+                {/* Días de semana */}
+                <div className="grid grid-cols-7 px-3 pt-3 pb-1">
+                  {['L','M','X','J','V','S','D'].map(d => (
+                    <div key={d} className="text-center text-[10px] font-black uppercase" style={{ color:'#6B7895' }}>{d}</div>
+                  ))}
+                </div>
+
+                {/* Celdas */}
+                <div className="grid grid-cols-7 gap-1 px-3 pb-4">
+                  {Array.from({ length: totalRows * 7 }).map((_, idx) => {
+                    const dayNum = idx - startOffset + 1
+                    if (dayNum < 1 || dayNum > daysInMonth) return <div key={idx} />
+                    const dateObj = new Date(year, month, dayNum)
+                    const trained = trainedDates.has(dateObj.toDateString())
+                    const isToday = dateObj.toDateString() === new Date().toDateString()
+                    return (
+                      <div key={idx} className="aspect-square flex items-center justify-center rounded-xl relative"
+                        style={trained
+                          ? { background:'rgba(0,229,168,0.18)', border:'1px solid rgba(0,229,168,0.4)' }
+                          : isToday
+                          ? { border:'1px solid rgba(255,255,255,0.15)' }
+                          : {}}>
+                        <span className="text-xs font-bold" style={{ color: trained ? '#00E5A8' : isToday ? '#fff' : '#4A5568' }}>{dayNum}</span>
+                        {trained && <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400" />}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+            </div>
+          )
+        })()}
 
         {/* ── TAB: CONFIGURACIÓN (solo coach) ── */}
         {activeTab === 'config' && isCoach && (

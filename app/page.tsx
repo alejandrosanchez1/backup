@@ -369,9 +369,13 @@ useEffect(() => {
     setOwnExSearch(q); setSelectedOwnEx(null)
     if (q.trim().length < 2) { setOwnExResults([]); return }
     const term = q.trim()
+    const words = term.split(/\s+/).filter(Boolean)
+    let customQ = supabaseAdmin.from('custom_exercises').select('id, name, target, gif_url')
+    let dbQ = supabase.from('all_exercises').select('id, name, target, "gifUrl"')
+    words.forEach(w => { customQ = customQ.ilike('name', `%${w}%`); dbQ = dbQ.ilike('name', `%${w}%`) })
     const [customRes, dbRes, apiRes] = await Promise.allSettled([
-      supabaseAdmin.from('custom_exercises').select('id, name, target, gif_url').ilike('name', `%${term}%`).limit(5),
-      supabase.from('all_exercises').select('id, name, target, "gifUrl"').ilike('name', `%${term}%`).limit(5),
+      customQ.limit(5),
+      dbQ.limit(5),
       fetchExercisesAPI({ search: term, limit: 5 }),
     ])
     const results: any[] = []
@@ -531,7 +535,8 @@ useEffect(() => {
 
   const fetchExercises = async (term = '') => {
     let q = supabase.from('all_exercises').select('*').order('name');
-    if (term.trim() !== '') { q = q.ilike('name', `%${term}%`) }
+    const words = term.trim().split(/\s+/).filter(Boolean);
+    words.forEach(word => { q = q.ilike('name', `%${word}%`) });
     const { data } = await q;
     if (data) setResults(data.map(ex => ({ ...ex, gifUrl: ex.gif_url })));
   };
