@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js'
 import {
   X, Save, Trash2, Shield, Users, Plus, UserPlus,
   Dumbbell, ChevronRight, Search, Check, ArrowLeft,
-  Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown, Upload, Image, Loader2
+  Clock, RotateCcw, Hash, ChevronUp, ChevronDown, UserX, Calendar, Crown, Upload, Image, Loader2,
+  KeyRound, Eye, EyeOff, Mail, Copy, CheckCheck
 } from 'lucide-react'
 import { exercisesData } from '@/lib/exercises-data'
 import { fetchExercises } from '@/lib/exercisedb-api'
@@ -106,6 +107,12 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const searchRef                           = useRef<HTMLInputElement>(null)
   const exSearchIdRef                       = useRef(0)
 
+  // ── Credentials ──────────────────────────────────────────────────────────
+  const [newPassword, setNewPassword]         = useState('')
+  const [showPassword, setShowPassword]       = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [emailCopied, setEmailCopied]         = useState(false)
+
   // ── Coach branding ────────────────────────────────────────────────────────
   const [coachLogo, setCoachLogo]         = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
@@ -189,6 +196,9 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     openMembership(user)
     setActiveTab('profile')
     setSelectedRoutine(null)
+    setNewPassword('')
+    setShowPassword(false)
+    setEmailCopied(false)
     const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', user.id).single()
     setMeals(nut?.meals || MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })))
     setWaterGoal(nut?.water_goal || 8)
@@ -469,6 +479,37 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     }).eq('id', selectedUser.id)
     setSaving(false)
     error ? toast(error.message, true) : toast('Perfil guardado')
+  }
+
+  // ── Credentials ───────────────────────────────────────────────────────────
+  const changePassword = async () => {
+    if (!selectedUser) return
+    if (newPassword.length < 6) return toast('La contraseña debe tener al menos 6 caracteres', true)
+    setChangingPassword(true)
+    try {
+      const res = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: selectedUser.id, password: newPassword }),
+      })
+      const result = await res.json()
+      if (!res.ok || result.error) return toast(result.error || 'Error al cambiar contraseña', true)
+      setNewPassword('')
+      setShowPassword(false)
+      toast('Contraseña actualizada correctamente')
+    } catch (e: any) {
+      toast(e.message || 'Error de red', true)
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
+  const copyEmail = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(email)
+      setEmailCopied(true)
+      setTimeout(() => setEmailCopied(false), 2000)
+    } catch { toast('No se pudo copiar', true) }
   }
 
   // ── Nutrition ─────────────────────────────────────────────────────────────
@@ -1299,6 +1340,74 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
             <button onClick={saveProfile} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 } as React.CSSProperties} className="transition-all active:scale-[0.97]">
               <Save size={16} /> {saving ? 'Guardando...' : 'Guardar Perfil'}
             </button>
+
+            {/* ── CREDENCIALES ── */}
+            <div className="p-5 space-y-4 rounded-[20px]" style={{ background:'rgba(0,194,255,0.05)', border:'1px solid rgba(0,194,255,0.18)' }}>
+              <div className="flex items-center gap-2">
+                <KeyRound size={14} style={{ color:'#00C2FF' }} />
+                <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00C2FF' }}>Credenciales de acceso</p>
+              </div>
+
+              {/* Email */}
+              <div>
+                <label style={lbl}>Correo electrónico</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 flex-1 rounded-xl px-4 py-3"
+                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                    <Mail size={14} style={{ color:'#6B7895', flexShrink:0 }} />
+                    <span className="text-sm font-bold text-white flex-1 truncate">{selectedUser.email || '—'}</span>
+                  </div>
+                  {selectedUser.email && (
+                    <button
+                      onClick={() => copyEmail(selectedUser.email!)}
+                      className="w-11 h-11 flex items-center justify-center rounded-xl transition-all active:scale-90 shrink-0"
+                      style={{ background: emailCopied ? 'rgba(0,229,168,0.15)' : 'rgba(255,255,255,0.05)', border: emailCopied ? '1px solid rgba(0,229,168,0.3)' : '1px solid rgba(255,255,255,0.08)' }}
+                      title="Copiar email">
+                      {emailCopied
+                        ? <CheckCheck size={15} style={{ color:'#00E5A8' }} />
+                        : <Copy size={15} style={{ color:'#6B7895' }} />
+                      }
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Nueva contraseña */}
+              <div>
+                <label style={lbl}>Establecer nueva contraseña</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1 rounded-xl px-4"
+                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Nueva contraseña (mín. 6 caracteres)"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && changePassword()}
+                      className="flex-1 bg-transparent outline-none py-3 text-sm font-bold text-white placeholder:font-normal placeholder:text-slate-600"
+                    />
+                    <button onClick={() => setShowPassword(p => !p)}
+                      className="flex items-center justify-center w-7 h-7 shrink-0 transition-all active:scale-90">
+                      {showPassword
+                        ? <EyeOff size={14} style={{ color:'#6B7895' }} />
+                        : <Eye size={14} style={{ color:'#6B7895' }} />
+                      }
+                    </button>
+                  </div>
+                  <button
+                    onClick={changePassword}
+                    disabled={changingPassword || newPassword.length < 6}
+                    className="h-11 px-4 rounded-xl text-xs font-black uppercase text-white transition-all active:scale-95 disabled:opacity-40 flex items-center gap-2 shrink-0"
+                    style={{ background:'linear-gradient(135deg,#00C2FF,#7C5CFF)', boxShadow:'0 4px 16px rgba(0,194,255,0.3)' }}>
+                    {changingPassword ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
+                    {changingPassword ? 'Guardando...' : 'Cambiar'}
+                  </button>
+                </div>
+                <p className="text-[10px] mt-2" style={{ color:'#6B7895' }}>
+                  El usuario deberá usar esta nueva contraseña en su próximo inicio de sesión.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 

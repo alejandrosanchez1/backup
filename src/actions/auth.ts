@@ -69,3 +69,20 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut()
   redirect('/login')
 }
+
+export async function adminChangeUserPassword(userId: string, newPassword: string): Promise<AuthResult> {
+  if (!userId || !newPassword || newPassword.length < 6) {
+    return { error: 'Contraseña inválida (mínimo 6 caracteres)' }
+  }
+
+  const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+
+  const { error } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword })
+  if (error) return { error: error.message }
+  return { success: true }
+}
