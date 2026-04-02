@@ -698,9 +698,9 @@ useEffect(() => {
         const setsFromState = workoutData[exerciseKey] || [];
         const setsArray = Array.isArray(setsFromState) ? setsFromState : Object.values(setsFromState);
         const validSets = setsArray.filter((s: any) => {
-          const w = parseFloat(s.weight);
-          const r = parseInt(s.reps);
-          return !isNaN(w) && (w > 0 || r > 0);
+          const w = parseFloat(s.weight) || 0;
+          const r = parseInt(s.reps) || 0;
+          return w > 0 || r > 0;
         });
         return { 
           exercise_name: ex.name || ex.exercise_name, 
@@ -714,13 +714,15 @@ useEffect(() => {
         return;
       }
 
-      const { error } = await supabase.from('workout_logs').insert([{ 
-        user_id: user.id, 
-        routine_name: activeRoutine.name, 
+      const now = new Date().toISOString();
+      const { error } = await supabase.from('workout_logs').insert([{
+        user_id: user.id,
+        routine_name: activeRoutine.name,
         duration: formatTime(workoutTimer),
-        total_sets: details.reduce((acc: number, ex: any) => acc + ex.sets.length, 0), 
-        workout_details: details, 
-        created_at: new Date().toISOString() 
+        total_sets: details.reduce((acc: number, ex: any) => acc + ex.sets.length, 0),
+        workout_details: details,
+        date: now,
+        created_at: now,
       }]);
 
       if (error) throw error;
@@ -1460,20 +1462,6 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Configurar perfil — solo admin y coach */}
-              {['admin','coach'].includes(userStats.role) && (
-                <button
-                  onClick={() => { setActiveSettingsTab('general'); handleNavigate('routines') }}
-                  className="w-full py-4 rounded-[20px] flex items-center justify-center gap-3 transition-all active:scale-[0.97]"
-                  style={{ background:'rgba(124,92,255,0.08)', border:'1px solid rgba(124,92,255,0.25)' }}
-                >
-                  <Settings size={18} style={{ color:'#7C5CFF' }} />
-                  <span className="font-black uppercase text-sm tracking-widest" style={{ color:'#7C5CFF' }}>
-                    Configurar mi perfil
-                  </span>
-                  <ChevronRight size={16} style={{ color:'#7C5CFF' }} />
-                </button>
-              )}
 
               {/* Logout */}
               <div className="space-y-3 pt-2">
