@@ -33,10 +33,17 @@ export default function NutritionView({
 
   const canEdit = userRole === 'coach' || userRole === 'admin'
 
+  const todayKey = userId ? `water_${userId}_${new Date().toISOString().split('T')[0]}` : null
+
   useEffect(() => {
     if (!userId) {
       setLoading(false)
       return
+    }
+    // Cargar vasos del día desde localStorage
+    if (todayKey) {
+      const saved = parseInt(localStorage.getItem(todayKey) || '0')
+      setWater(saved)
     }
     supabase
       .from('nutrition_plans')
@@ -50,6 +57,11 @@ export default function NutritionView({
         setLoading(false)
       })
   }, [userId])
+
+  const saveWater = (value: number) => {
+    setWater(value)
+    if (todayKey) localStorage.setItem(todayKey, String(value))
+  }
 
   const waterGoal = plan?.water_goal || DEFAULT_WATER_GOAL
 
@@ -142,7 +154,7 @@ export default function NutritionView({
           {Array.from({ length: waterGoal }).map((_, i) => (
             <div
               key={i}
-              onClick={() => setWater(i + 1)}
+              onClick={() => saveWater(i + 1)}
               className={`flex-1 h-8 rounded-lg cursor-pointer transition-all ${i < water ? 'bg-blue-500' : 'bg-gray-700'}`}
             />
           ))}
@@ -150,14 +162,14 @@ export default function NutritionView({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setWater(w => Math.min(w + 1, waterGoal))}
+            onClick={() => saveWater(Math.min(water + 1, waterGoal))}
             className="flex-1 bg-blue-600 hover:bg-blue-500 rounded-xl py-2 text-xs font-black uppercase"
           >
             + Vaso
           </button>
           <button
             type="button"
-            onClick={() => setWater(0)}
+            onClick={() => saveWater(0)}
             className="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-2 text-xs font-black uppercase text-gray-400"
           >
             Reset
