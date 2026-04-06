@@ -1440,7 +1440,12 @@ useEffect(() => {
                     setLoggingOut(true)
                     await new Promise(r => setTimeout(r, 700))
                     await supabase.auth.signOut()
+                    // Preservar registros de agua diaria al cerrar sesión
+                    const waterEntries: [string, string][] = Object.keys(localStorage)
+                      .filter(k => k.startsWith('water_'))
+                      .map(k => [k, localStorage.getItem(k) || '0'])
                     localStorage.clear()
+                    waterEntries.forEach(([k, v]) => localStorage.setItem(k, v))
                     sessionStorage.clear()
                     if ('caches' in window) {
                       const keys = await caches.keys()

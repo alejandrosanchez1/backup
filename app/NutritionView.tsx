@@ -58,9 +58,21 @@ export default function NutritionView({
       })
   }, [userId])
 
+  const [waterCompleted, setWaterCompleted] = useState(false)
+
   const saveWater = (value: number) => {
+    const waterGoalNow = plan?.water_goal || DEFAULT_WATER_GOAL
     setWater(value)
     if (todayKey) localStorage.setItem(todayKey, String(value))
+    // Al llegar al máximo: celebrar y resetear automáticamente
+    if (value >= waterGoalNow) {
+      setWaterCompleted(true)
+      setTimeout(() => {
+        setWater(0)
+        if (todayKey) localStorage.setItem(todayKey, '0')
+        setWaterCompleted(false)
+      }, 1500)
+    }
   }
 
   const waterGoal = plan?.water_goal || DEFAULT_WATER_GOAL
@@ -150,11 +162,16 @@ export default function NutritionView({
             )}
           </div>
         </div>
+        {waterCompleted && (
+          <div className="text-center py-1 mb-2 text-sm font-black text-blue-300 animate-pulse">
+            🎉 ¡Meta cumplida! Reiniciando...
+          </div>
+        )}
         <div className="flex gap-2 mb-3">
           {Array.from({ length: waterGoal }).map((_, i) => (
             <div
               key={i}
-              onClick={() => saveWater(i + 1)}
+              onClick={() => !waterCompleted && saveWater(i + 1)}
               className={`flex-1 h-8 rounded-lg cursor-pointer transition-all ${i < water ? 'bg-blue-500' : 'bg-gray-700'}`}
             />
           ))}
@@ -162,7 +179,7 @@ export default function NutritionView({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => saveWater(Math.min(water + 1, waterGoal))}
+            onClick={() => !waterCompleted && saveWater(Math.min(water + 1, waterGoal))}
             className="flex-1 bg-blue-600 hover:bg-blue-500 rounded-xl py-2 text-xs font-black uppercase"
           >
             + Vaso
