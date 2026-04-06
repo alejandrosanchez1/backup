@@ -267,7 +267,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   }
 
   const loadMyNutrition = async () => {
-    const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', currentUserId).single()
+    const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', currentUserId).order('created_at', { ascending: false }).limit(1).maybeSingle()
     if (nut) {
       setMyMeals(nut.meals || MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })))
       setMyWaterGoal(nut.water_goal || 8)
@@ -282,9 +282,14 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     const payload: any = { water_goal: myWaterGoal, salads, nutrition_format: coachNutritionPref }
     if (coachNutritionPref === 'days') payload.days_plan = myDaysMeals
     else payload.meals = myMeals
-    const { data: ex } = await db.from('nutrition_plans').select('id').eq('user_id', currentUserId).single()
-    if (ex) await db.from('nutrition_plans').update(payload).eq('user_id', currentUserId)
-    else    await db.from('nutrition_plans').insert([{ user_id: currentUserId, ...payload }])
+    const { data: ex } = await db.from('nutrition_plans').select('id').eq('user_id', currentUserId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (ex) {
+      const { error } = await db.from('nutrition_plans').update(payload).eq('id', ex.id)
+      if (error) { toast('Error al guardar: ' + error.message, true); setSavingMyNutrition(false); return }
+    } else {
+      const { error } = await db.from('nutrition_plans').insert([{ user_id: currentUserId, ...payload }])
+      if (error) { toast('Error al guardar: ' + error.message, true); setSavingMyNutrition(false); return }
+    }
     setSavingMyNutrition(false)
     toast('Nutrición guardada')
   }
@@ -456,7 +461,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     setNewPassword('')
     setShowPassword(false)
     setEmailCopied(false)
-    const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', user.id).single()
+    const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
     setMeals(nut?.meals || MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })))
     setWaterGoal(nut?.water_goal || 8)
     setIncludeSalads(Array.isArray(nut?.salads) && nut.salads.length > 0)
@@ -782,9 +787,14 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     const payload: any = { water_goal: waterGoal, salads, nutrition_format: nutritionFormat }
     if (nutritionFormat === 'days') payload.days_plan = daysMeals
     else payload.meals = meals
-    const { data: ex } = await db.from('nutrition_plans').select('id').eq('user_id', selectedUser.id).single()
-    if (ex) await db.from('nutrition_plans').update(payload).eq('user_id', selectedUser.id)
-    else    await db.from('nutrition_plans').insert([{ user_id: selectedUser.id, ...payload }])
+    const { data: ex } = await db.from('nutrition_plans').select('id').eq('user_id', selectedUser.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (ex) {
+      const { error } = await db.from('nutrition_plans').update(payload).eq('id', ex.id)
+      if (error) { toast('Error al guardar: ' + error.message, true); setSaving(false); return }
+    } else {
+      const { error } = await db.from('nutrition_plans').insert([{ user_id: selectedUser.id, ...payload }])
+      if (error) { toast('Error al guardar: ' + error.message, true); setSaving(false); return }
+    }
     setSaving(false); toast('Nutrición guardada')
   }
   const updateMeal = (i: number, type: 'protein'|'carbs'|'fat', val: string) =>

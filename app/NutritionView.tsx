@@ -73,9 +73,9 @@ export default function NutritionView({
   const saveWaterGoal = async () => {
     if (!userId) return
     setSavingGoal(true)
-    const { data: ex } = await supabase.from('nutrition_plans').select('id').eq('user_id', userId).single()
+    const { data: ex } = await supabase.from('nutrition_plans').select('id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
     if (ex) {
-      await supabase.from('nutrition_plans').update({ water_goal: goalInput }).eq('user_id', userId)
+      await supabase.from('nutrition_plans').update({ water_goal: goalInput }).eq('id', ex.id)
     } else {
       await supabase.from('nutrition_plans').insert([{ user_id: userId, water_goal: goalInput, meals: [] }])
     }

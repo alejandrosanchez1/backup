@@ -36,3 +36,16 @@ create policy "Users can delete own workouts"
 -- Ejecutar en el SQL Editor de Supabase si la tabla ya existe
 alter table public.nutrition_plans
   add column if not exists water_goal integer not null default 8;
+
+-- Limpieza de filas duplicadas en nutrition_plans (mantiene la más reciente por user_id)
+-- Ejecutar UNA VEZ en el SQL Editor de Supabase
+DELETE FROM public.nutrition_plans
+WHERE id NOT IN (
+  SELECT DISTINCT ON (user_id) id
+  FROM public.nutrition_plans
+  ORDER BY user_id, created_at DESC
+);
+
+-- Prevenir duplicados futuros (ejecutar después de la limpieza)
+ALTER TABLE public.nutrition_plans
+  ADD CONSTRAINT nutrition_plans_user_id_unique UNIQUE (user_id);
