@@ -117,6 +117,8 @@ export default function GymProApp() {
   const [bodyStatsHistory, setBodyStatsHistory] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [activeRoutine, setActiveRoutine] = useState<any>(null);
+  const [showMeasHistory, setShowMeasHistory] = useState(false);
+  const [coachUpdateNotif, setCoachUpdateNotif] = useState<string | null>(null);
   const [workoutData, setWorkoutData] = useState<any>({});
   const [workoutTimer, setWorkoutTimer] = useState(0);
   const [restTimer, setRestTimer] = useState(0);
@@ -356,6 +358,18 @@ useEffect(() => {
     if (data.coach_id) {
       const { data: coach } = await supabaseAdmin.from('profiles').select('logo_url').eq('id', data.coach_id).single();
       setCoachLogo(coach?.logo_url || null);
+    }
+    // Notificar si el coach actualizó el perfil desde la última vez que el usuario lo vio
+    if (data?.updated_at && data?.role === 'user') {
+      const key = `last_seen_update_${userId}`;
+      const lastSeen = localStorage.getItem(key);
+      if (!lastSeen || new Date(data.updated_at) > new Date(lastSeen)) {
+        if (lastSeen) {
+          const updatedDate = new Date(data.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+          setCoachUpdateNotif(`Tu coach actualizó tu perfil el ${updatedDate}`);
+        }
+        localStorage.setItem(key, data.updated_at);
+      }
     }
   };
 
@@ -1135,6 +1149,20 @@ useEffect(() => {
           {/* ── HOME ───────────────────────────────────────────────────── */}
           {currentView === 'home' && (
             <div className="space-y-8">
+
+              {/* ── NOTIFICACIÓN COACH ── */}
+              {coachUpdateNotif && (
+                <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl" style={{ background: 'rgba(0,229,168,0.08)', border: '1px solid rgba(0,229,168,0.25)' }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <HeartPulse size={15} style={{ color: '#00E5A8', flexShrink: 0 }} />
+                    <p className="text-[11px] font-bold text-white truncate">{coachUpdateNotif}</p>
+                  </div>
+                  <button onClick={() => setCoachUpdateNotif(null)} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <X size={11} style={{ color: '#6B7895' }} />
+                  </button>
+                </div>
+              )}
+
               <header
                 className="p-6 rounded-[20px] text-center backdrop-blur-[10px]"
                 style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', animation: 'homeCardIn 0.55s ease-out both' }}
@@ -1490,10 +1518,53 @@ useEffect(() => {
 
                 {physicalProgress.totalRecords === 0 && (
                   <div className="text-center py-4">
-                    <p className="text-[10px]" style={{ color: '#6B7895' }}>Ve a <span style={{ color: '#a78bfa' }}>Ajustes → Antropometría</span> y pulsa <span style={{ color: '#a78bfa' }}>Registrar</span> para guardar tu primera medición.</p>
+                    <p className="text-[10px]" style={{ color: '#6B7895' }}>Tu coach registrará tus medidas y aquí verás tu progreso.</p>
                   </div>
                 )}
               </div>
+
+              {/* ── HISTORIAL DE MEDICIONES ─── */}
+              {bodyStatsHistory.length > 0 && (
+                <div className="p-5 rounded-[20px] space-y-3" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <button onClick={() => setShowMeasHistory(v => !v)} className="w-full flex items-center justify-between">
+                    <h2 className="text-xs font-black uppercase flex items-center gap-2" style={{ color: '#00C2FF' }}>
+                      <History size={14}/> Historial de Mediciones
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-lg" style={{ background: 'rgba(0,194,255,0.12)', color: '#00C2FF' }}>{bodyStatsHistory.length}</span>
+                      {showMeasHistory ? <ChevronUp size={14} style={{ color: '#6B7895' }}/> : <ChevronDown size={14} style={{ color: '#6B7895' }}/>}
+                    </div>
+                  </button>
+
+                  {showMeasHistory && (
+                    <div className="space-y-2 pt-1">
+                      {[...bodyStatsHistory].reverse().map((entry: any, i: number) => (
+                        <div key={entry.id || i} className="p-3 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-[10px] font-black text-white">
+                              {new Date(entry.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                            {i === 0 && <span className="text-[8px] font-black px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,229,168,0.15)', color: '#00E5A8' }}>Última</span>}
+                          </div>
+                          <div className="grid grid-cols-4 gap-1 text-center">
+                            {[
+                              { label: 'Peso',  val: entry.weight ? `${entry.weight}kg` : '—',  color: '#60a5fa' },
+                              { label: 'Grasa', val: entry.measurements?.results?.fatPercentage ? `${parseFloat(entry.measurements.results.fatPercentage).toFixed(1)}%` : '—', color: '#f87171' },
+                              { label: 'Magra', val: entry.measurements?.results?.muscleMass    ? `${parseFloat(entry.measurements.results.muscleMass).toFixed(1)}kg`  : '—', color: '#00E5A8' },
+                              { label: 'IMC',   val: entry.measurements?.results?.bmi           ? `${parseFloat(entry.measurements.results.bmi).toFixed(1)}`           : '—', color: '#a78bfa' },
+                            ].map(({ label, val, color }) => (
+                              <div key={label}>
+                                <p className="text-[7px] uppercase font-bold mb-0.5" style={{ color: '#6B7895' }}>{label}</p>
+                                <p className="text-[10px] font-black" style={{ color }}>{val}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ── RENDIMIENTO / PRs ─── */}
               <div className="p-5 rounded-[20px] space-y-3" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>

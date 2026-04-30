@@ -93,6 +93,40 @@ function calcBodyResults(p: {
   };
 }
 
+// ── SparkLine para gráficas de progreso ──────────────────────────────────────
+function AdminSparkLine({ data, color, unit, invertGood = false, label }: { data: { date: string; value: number }[]; color: string; unit: string; invertGood?: boolean; label: string }) {
+  if (data.length < 2) return null
+  const values = data.map(d => d.value)
+  const min = Math.min(...values); const max = Math.max(...values); const range = max - min || 1
+  const W = 280; const H = 52; const pad = 4
+  const points = data.map((d, i) => {
+    const x = pad + (i / (data.length - 1)) * (W - pad * 2)
+    const y = H - pad - ((d.value - min) / range) * (H - pad * 2)
+    return `${x},${y}`
+  }).join(' ')
+  const first = values[0]; const last = values[values.length - 1]
+  const change = +(last - first).toFixed(1)
+  const isImproved = invertGood ? change < 0 : change > 0
+  const changeColor = change === 0 ? '#6B7895' : isImproved ? '#00E5A8' : '#f87171'
+  const lastX = pad + ((data.length - 1) / (data.length - 1)) * (W - pad * 2)
+  const lastY = H - pad - ((last - min) / range) * (H - pad * 2)
+  const fmt = (d: string) => new Date(d).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })
+  return (
+    <div className="space-y-1">
+      <p className="text-[9px] uppercase font-black tracking-widest" style={{ color: '#6B7895' }}>{label}</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 52 }}>
+        <polyline fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={points} opacity="0.9" />
+        <circle cx={lastX} cy={lastY} r="3.5" fill={color} />
+      </svg>
+      <div className="flex justify-between items-center">
+        <span className="text-[9px]" style={{ color: '#6B7895' }}>{fmt(data[0].date)} · {first}{unit}</span>
+        <span className="text-[9px] font-black" style={{ color: changeColor }}>{change > 0 ? '+' : ''}{change}{unit}</span>
+        <span className="text-[9px]" style={{ color: '#6B7895' }}>{fmt(data[data.length-1].date)} · {last}{unit}</span>
+      </div>
+    </div>
+  )
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 const card: React.CSSProperties = {
   background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)',
@@ -120,7 +154,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const [users, setUsers]               = useState<Profile[]>([])
   const [loading, setLoading]           = useState(true)
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
-  const [activeTab, setActiveTab]       = useState<'profile'|'nutrition'|'routines'|'notas'|'config'|'control'>('profile')
+  const [activeTab, setActiveTab]       = useState<'profile'|'progreso'|'nutrition'|'routines'|'notas'|'config'|'control'>('profile')
   const [meals, setMeals]               = useState<Meal[]>([])
   const [waterGoal, setWaterGoal]       = useState(8)
   const [includeSalads, setIncludeSalads] = useState(false)
@@ -128,6 +162,7 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const [daysMeals, setDaysMeals]       = useState<DayPlan[]>(emptyDaysPlan())
   const [activeDayIdx, setActiveDayIdx] = useState(0)
   const [userWorkoutLogs, setUserWorkoutLogs] = useState<any[]>([])
+  const [clientBodyStats, setClientBodyStats] = useState<any[]>([])
   const [controlMonth, setControlMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
   const [routines, setRoutines]         = useState<Routine[]>([])
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null)
@@ -530,6 +565,11 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     } catch (e: any) { toast(e.message || 'Error al eliminar usuario', true) }
   }
 
+  const fetchClientBodyStats = async (userId: string) => {
+    const { data } = await db.from('body_stats_history').select('*').eq('user_id', userId).order('date', { ascending: true })
+    setClientBodyStats(data || [])
+  }
+
   const selectUser = async (user: Profile) => {
     setSelectedUser(user)
     setEditProfile(user)
@@ -539,6 +579,8 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     setNewPassword('')
     setShowPassword(false)
     setEmailCopied(false)
+    setClientBodyStats([])
+    fetchClientBodyStats(user.id)
     const { data: nut } = await db.from('nutrition_plans').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
     setMeals(nut?.meals || MEAL_NAMES.map(n => ({ name: n, protein: [], carbs: [], fat: [] })))
     setWaterGoal(nut?.water_goal || 8)
@@ -1683,11 +1725,12 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     }
 
     const TABS = [
-      { key: 'profile',   label: 'Perfil'         },
-      { key: 'nutrition', label: 'Nutrición'       },
-      { key: 'routines',  label: 'Rutinas'         },
-      { key: 'notas',     label: 'Notas'           },
-      { key: 'control',   label: 'Control'         },
+      { key: 'profile',  label: 'Perfil'     },
+      { key: 'progreso', label: 'Progreso'   },
+      { key: 'nutrition',label: 'Nutrición'  },
+      { key: 'routines', label: 'Rutinas'    },
+      { key: 'notas',    label: 'Notas'      },
+      { key: 'control',  label: 'Control'    },
       ...(isCoach ? [{ key: 'config', label: 'Configuración' }] : []),
     ] as const
 
@@ -2263,6 +2306,127 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
             )}
           </div>
         )}
+
+        {/* ── TAB: PROGRESO ── */}
+        {activeTab === 'progreso' && (() => {
+          const wH  = clientBodyStats.filter(e => e.weight > 0).map((e: any) => ({ date: e.date, value: +e.weight }))
+          const fH  = clientBodyStats.filter(e => e.measurements?.results?.fatPercentage > 0).map((e: any) => ({ date: e.date, value: +(+e.measurements.results.fatPercentage).toFixed(1) }))
+          const mH  = clientBodyStats.filter(e => e.measurements?.results?.muscleMass > 0).map((e: any) => ({ date: e.date, value: +(+e.measurements.results.muscleMass).toFixed(1) }))
+          const bH  = clientBodyStats.filter(e => e.measurements?.results?.bmi > 0).map((e: any) => ({ date: e.date, value: +(+e.measurements.results.bmi).toFixed(2) }))
+          const first = clientBodyStats[0]
+          const latest = clientBodyStats[clientBodyStats.length - 1]
+          const diffVal = (a: any, b: any) => { const d = +(a - b).toFixed(1); return d > 0 ? `+${d}` : `${d}` }
+          return (
+            <div className="space-y-4">
+              {/* Resumen */}
+              <div className="p-5 space-y-4 rounded-[20px]" style={card}>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#a78bfa' }}>📊 Análisis de Progreso</p>
+                  <span className="text-[9px] font-black px-2 py-1 rounded-lg" style={{ background:'rgba(167,139,250,0.12)', color:'#a78bfa' }}>
+                    {clientBodyStats.length} mediciones
+                  </span>
+                </div>
+
+                {clientBodyStats.length === 0 && (
+                  <p className="text-[11px] text-center py-4" style={{ color:'#6B7895' }}>
+                    Aún no hay medidas registradas.<br/>Guarda el perfil del cliente en la pestaña <span style={{ color:'#00E5A8' }}>Perfil</span> para iniciar el historial.
+                  </p>
+                )}
+
+                {clientBodyStats.length >= 1 && latest && (
+                  <>
+                    {/* Métricas actuales */}
+                    <div>
+                      <p className="text-[9px] uppercase font-bold mb-2" style={{ color:'#6B7895' }}>Última medición · {new Date(latest.date).toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' })}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label:'Peso',       val: latest.weight ? `${latest.weight} kg` : '—',                                           color:'#60a5fa' },
+                          { label:'% Grasa',    val: latest.measurements?.results?.fatPercentage ? `${parseFloat(latest.measurements.results.fatPercentage).toFixed(1)}%` : '—', color:'#f87171' },
+                          { label:'Masa Magra', val: latest.measurements?.results?.muscleMass    ? `${parseFloat(latest.measurements.results.muscleMass).toFixed(1)} kg`  : '—', color:'#00E5A8' },
+                          { label:'IMC',        val: latest.measurements?.results?.bmi           ? `${parseFloat(latest.measurements.results.bmi).toFixed(2)}`            : '—', color:'#a78bfa' },
+                        ].map(({ label, val, color }) => (
+                          <div key={label} className="p-3 rounded-2xl" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                            <p className="text-[8px] uppercase font-bold mb-1" style={{ color:'#6B7895' }}>{label}</p>
+                            <p className="text-base font-black" style={{ color }}>{val}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Progreso total si hay 2+ registros */}
+                    {clientBodyStats.length >= 2 && first && (
+                      <div>
+                        <p className="text-[9px] uppercase font-bold mb-2" style={{ color:'#6B7895' }}>Desde el inicio · {new Date(first.date).toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' })}</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label:'Peso',    a: latest.weight, b: first.weight, unit:'kg', invertGood: false },
+                            { label:'% Grasa', a: parseFloat(latest.measurements?.results?.fatPercentage||'0'), b: parseFloat(first.measurements?.results?.fatPercentage||'0'), unit:'%', invertGood: true },
+                            { label:'Magra',   a: parseFloat(latest.measurements?.results?.muscleMass||'0'),    b: parseFloat(first.measurements?.results?.muscleMass||'0'),    unit:'kg', invertGood: false },
+                          ].map(({ label, a, b, unit, invertGood }) => {
+                            if (!a || !b) return (
+                              <div key={label} className="p-3 rounded-2xl text-center" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                                <p className="text-[8px] uppercase font-bold mb-1" style={{ color:'#6B7895' }}>{label}</p>
+                                <p className="text-sm font-black" style={{ color:'#6B7895' }}>—</p>
+                              </div>
+                            )
+                            const change = diffVal(a, b)
+                            const isPos = change.startsWith('+')
+                            const isGood = invertGood ? !isPos : isPos
+                            return (
+                              <div key={label} className="p-3 rounded-2xl text-center" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                                <p className="text-[8px] uppercase font-bold mb-1" style={{ color:'#6B7895' }}>{label}</p>
+                                <p className="text-sm font-black" style={{ color: isGood ? '#00E5A8' : '#f87171' }}>{change}{unit}</p>
+                                <p className="text-[8px]" style={{ color: isGood ? '#00E5A8' : '#f87171' }}>{isGood ? '↑ mejora' : '↓ revisar'}</p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sparklines */}
+                    <div className="space-y-4 pt-1">
+                      {wH.length >= 2 && <AdminSparkLine data={wH}  color="#60a5fa" unit="kg" label="Evolución del Peso" />}
+                      {fH.length >= 2 && <AdminSparkLine data={fH}  color="#f87171" unit="%" label="Evolución % Grasa" invertGood />}
+                      {mH.length >= 2 && <AdminSparkLine data={mH}  color="#00E5A8" unit="kg" label="Evolución Masa Magra" />}
+                      {bH.length >= 2 && <AdminSparkLine data={bH}  color="#a78bfa" unit=""  label="Evolución IMC" invertGood />}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Historial de mediciones */}
+              {clientBodyStats.length > 0 && (
+                <div className="p-5 space-y-3 rounded-[20px]" style={card}>
+                  <p className="text-[10px] uppercase font-black tracking-widest" style={{ color:'#00E5A8' }}>📋 Historial de Mediciones</p>
+                  <div className="space-y-2">
+                    {[...clientBodyStats].reverse().map((entry: any, i: number) => (
+                      <div key={entry.id || i} className="p-3 rounded-2xl" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] font-black text-white">{new Date(entry.date).toLocaleDateString('es-ES', { weekday:'short', day:'numeric', month:'short', year:'numeric' })}</p>
+                          {i === 0 && <span className="text-[8px] font-black px-2 py-0.5 rounded-full" style={{ background:'rgba(0,229,168,0.15)', color:'#00E5A8' }}>Última</span>}
+                        </div>
+                        <div className="grid grid-cols-4 gap-1">
+                          {[
+                            { label:'Peso', val: entry.weight ? `${entry.weight}kg` : '—', color:'#60a5fa' },
+                            { label:'Grasa', val: entry.measurements?.results?.fatPercentage ? `${parseFloat(entry.measurements.results.fatPercentage).toFixed(1)}%` : '—', color:'#f87171' },
+                            { label:'Magra', val: entry.measurements?.results?.muscleMass ? `${parseFloat(entry.measurements.results.muscleMass).toFixed(1)}kg` : '—', color:'#00E5A8' },
+                            { label:'IMC', val: entry.measurements?.results?.bmi ? `${parseFloat(entry.measurements.results.bmi).toFixed(1)}` : '—', color:'#a78bfa' },
+                          ].map(({ label, val, color }) => (
+                            <div key={label} className="text-center">
+                              <p className="text-[7px] uppercase font-bold" style={{ color:'#6B7895' }}>{label}</p>
+                              <p className="text-[10px] font-black" style={{ color }}>{val}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* ── TAB: NOTAS ── */}
         {activeTab === 'notas' && (
