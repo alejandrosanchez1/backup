@@ -508,21 +508,18 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
       updated_at: new Date().toISOString(),
     }).eq('id', currentUserId)
 
-    // Registrar en historial si hay pliegues o peso
+    // Registrar en historial cuando se guarda desde la pestaña Medidas
     if (ajustesTab === 'antropometria') {
-      const hasSk = Object.values((myProfile.measurements as any)?.skinfolds || {}).some((v: any) => parseFloat(v) > 0)
-      if (hasSk || parseFloat(String(myProfile.weight)) > 0) {
-        await db.from('body_stats_history').insert([{
-          user_id: currentUserId,
-          weight: parseFloat(String(myProfile.weight)) || 0,
-          measurements: {
-            skinfolds: (myProfile.measurements as any)?.skinfolds || {},
-            perimeters: (myProfile.measurements as any)?.perimeters || {},
-            results: myResults || {},
-          },
-          date: new Date().toISOString(),
-        }])
-      }
+      await db.from('body_stats_history').insert([{
+        user_id: currentUserId,
+        weight: parseFloat(String(myProfile.weight)) || 0,
+        measurements: {
+          skinfolds: (myProfile.measurements as any)?.skinfolds || {},
+          perimeters: (myProfile.measurements as any)?.perimeters || {},
+          results: myResults || {},
+        },
+        date: new Date().toISOString(),
+      }])
     }
 
     // Intentar guardar campos nuevos en DB
@@ -882,24 +879,24 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     }).eq('id', selectedUser.id)
 
     if (!error) {
-      // Registrar en historial de medidas físicas
-      const hasSkinfolds = Object.values((editProfile.measurements as any)?.skinfolds || {}).some((v: any) => parseFloat(v) > 0)
-      if (hasSkinfolds || parseFloat(String(editProfile.weight)) > 0) {
-        await db.from('body_stats_history').insert([{
-          user_id: selectedUser.id,
-          weight: parseFloat(String(editProfile.weight)) || 0,
-          measurements: {
-            skinfolds: (editProfile.measurements as any)?.skinfolds || {},
-            perimeters: (editProfile.measurements as any)?.perimeters || {},
-            results: results || {},
-          },
-          date: new Date().toISOString(),
-        }])
-      }
+      // Registrar siempre en historial cuando hay peso o medidas
+      const weight = parseFloat(String(editProfile.weight)) || 0
+      await db.from('body_stats_history').insert([{
+        user_id: selectedUser.id,
+        weight,
+        measurements: {
+          skinfolds: (editProfile.measurements as any)?.skinfolds || {},
+          perimeters: (editProfile.measurements as any)?.perimeters || {},
+          results: results || {},
+        },
+        date: new Date().toISOString(),
+      }])
+      // Refrescar la pestaña Progreso del coach
+      await fetchClientBodyStats(selectedUser.id)
     }
 
     setSaving(false)
-    error ? toast(error.message, true) : toast('✓ Perfil y medidas guardadas en historial')
+    error ? toast(error.message, true) : toast('✓ Medidas guardadas en historial')
   }
 
   // ── Credentials ───────────────────────────────────────────────────────────

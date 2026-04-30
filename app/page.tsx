@@ -690,7 +690,7 @@ useEffect(() => {
       measurements: { diameters: userStats.diameters, skinfolds: userStats.skinfolds, perimeters: userStats.perimeters, results: userStats.results },
       updated_at: new Date().toISOString()
     });
-    await supabase.from('body_stats_history').insert([{
+    const { error: histErr } = await supabase.from('body_stats_history').insert([{
       user_id: user.id,
       weight: parseFloat(userStats.weight),
       measurements: { skinfolds: userStats.skinfolds, perimeters: userStats.perimeters, results: userStats.results },
@@ -698,7 +698,11 @@ useEffect(() => {
     }]);
     await fetchBodyStats();
     setIsSaving(false);
-    Toast.show({ text: '✓ Medidas registradas en historial' });
+    if (histErr) {
+      Toast.show({ text: '⚠️ Perfil guardado pero hubo un error en el historial' });
+    } else {
+      Toast.show({ text: `✓ Registrado: ${userStats.weight}kg · ${userStats.results.fatPercentage}% grasa` });
+    }
   };
 
   const handleLogin = async () => {
