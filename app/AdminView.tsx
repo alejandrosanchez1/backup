@@ -48,6 +48,51 @@ const DEFAULT_SALADS = [
 ]
 const FOCUS_OPTIONS = ['Hipertrofia', 'Fuerza', 'Pérdida de Grasa', 'Resistencia', 'Salud']
 
+// ── Cálculo de resultados cineantropométricos ─────────────────────────────────
+function calcBodyResults(p: {
+  weight: string | number; height: string | number; age: number | string; gender: string;
+  skinfolds?: Record<string, string>; perimeters?: Record<string, string>; diameters?: Record<string, string>;
+}) {
+  const W = parseFloat(String(p.weight)); const H = parseFloat(String(p.height)); const A = parseInt(String(p.age));
+  if (!W || !H || !A) return null;
+  const sk = p.skinfolds || {}; const pe = p.perimeters || {}; const di = p.diameters || {};
+  const sum7 = ['biceps','triceps','subscapular','suprailiaco','abdominal','muslo','pierna','pectoral']
+    .reduce((acc, k) => acc + parseFloat(sk[k] || '0'), 0);
+  const imc = W / (H * H);
+  const icc = parseFloat(pe.abdomen || '0') / (parseFloat(pe.cadera || '1') || 1);
+  let fatPct = p.gender === 'Hombre'
+    ? ((4.95 / (1.112 - 0.00043499*sum7 + 0.00000055*Math.pow(sum7,2) - 0.00028826*A)) - 4.5) * 100
+    : ((4.95 / (1.097 - 0.00046971*sum7 + 0.00000056*Math.pow(sum7,2) - 0.00012828*A)) - 4.5) * 100;
+  if (!isFinite(fatPct) || fatPct < 0) fatPct = 0;
+  const muscleMass = W * (1 - fatPct/100) * 0.7;
+  const bmr = p.gender === 'Hombre'
+    ? (10*W) + (6.25*(H*100)) - (5*A) + 5
+    : (10*W) + (6.25*(H*100)) - (5*A) - 161;
+  const endo = -0.7182 + 0.1451*sum7 - 0.00068*Math.pow(sum7,2) + 0.0000014*Math.pow(sum7,3);
+  const meso = (0.85*parseFloat(di.humeral||'6.3')) + (0.601*parseFloat(di.femoral||'8.6')) +
+    (0.188*(parseFloat(pe.bicepsC||'29') - parseFloat(sk.triceps||'0')/10)) +
+    (0.161*(parseFloat(pe.pantorrilla||'33') - parseFloat(sk.pierna||'0')/10)) - (0.131*(H*100)) + 4.5;
+  const hwr = (H*100) / Math.pow(W, 1/3);
+  const ecto = hwr > 40.75 ? (0.732*hwr - 28.58) : (0.463*hwr - 17.63);
+  return {
+    fatPercentage: fatPct.toFixed(1),
+    fatLabel: fatPct < 15 ? 'Excelente' : fatPct < 25 ? 'Aceptable' : 'Alto',
+    muscleMass: muscleMass.toFixed(1),
+    bmr: Math.round(bmr).toString(),
+    bmi: imc.toFixed(2),
+    bmiLabel: imc < 18.5 ? 'Bajo peso' : imc < 25 ? 'Saludable' : imc < 30 ? 'Sobrepeso' : 'Obesidad',
+    idealWeight: (22 * H * H).toFixed(2),
+    icc: icc.toFixed(2),
+    iccLabel: icc < 0.9 ? 'Excelente' : 'Riesgo',
+    somatotype: {
+      endo: isFinite(endo) ? endo.toFixed(1) : '0',
+      meso: isFinite(meso) ? meso.toFixed(1) : '0',
+      ecto: isFinite(ecto) ? ecto.toFixed(1) : '0',
+      label: meso > ecto ? 'Mesomorfo' : 'Ectomorfo',
+    },
+  };
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 const card: React.CSSProperties = {
   background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)',
@@ -397,6 +442,21 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const saveMyCoachProfile = async () => {
     setSavingMySettings(true)
 
+    // Calcular resultados del coach
+    const myResults = calcBodyResults({
+      weight: myProfile.weight || '0', height: myProfile.height || '0',
+      age: myProfile.age || 0, gender: myProfile.gender || 'Hombre',
+      skinfolds: (myProfile.measurements as any)?.skinfolds,
+      perimeters: (myProfile.measurements as any)?.perimeters,
+      diameters: (myProfile.measurements as any)?.diameters,
+    })
+
+    const myMeasurementsWithResults = {
+      ...(myProfile.measurements || {}),
+      goals: myGoals,
+      ...(myResults ? { results: myResults } : {}),
+    }
+
     // Guardar campos base (siempre existen)
     await db.from('profiles').update({
       full_name: myProfile.full_name,
@@ -409,8 +469,26 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
       injuries: myProfile.injuries,
       diet_style: myProfile.diet_style,
       focus_areas: myProfile.focus_areas,
-      measurements: { ...(myProfile.measurements || {}), goals: myGoals },
+      measurements: myMeasurementsWithResults,
+      updated_at: new Date().toISOString(),
     }).eq('id', currentUserId)
+
+    // Registrar en historial si hay pliegues o peso
+    if (ajustesTab === 'antropometria') {
+      const hasSk = Object.values((myProfile.measurements as any)?.skinfolds || {}).some((v: any) => parseFloat(v) > 0)
+      if (hasSk || parseFloat(String(myProfile.weight)) > 0) {
+        await db.from('body_stats_history').insert([{
+          user_id: currentUserId,
+          weight: parseFloat(String(myProfile.weight)) || 0,
+          measurements: {
+            skinfolds: (myProfile.measurements as any)?.skinfolds || {},
+            perimeters: (myProfile.measurements as any)?.perimeters || {},
+            results: myResults || {},
+          },
+          date: new Date().toISOString(),
+        }])
+      }
+    }
 
     // Intentar guardar campos nuevos en DB
     await db.from('profiles').update({
@@ -737,15 +815,49 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const saveProfile = async () => {
     if (!selectedUser) return
     setSaving(true)
+
+    // Calcular resultados con los datos actuales
+    const results = calcBodyResults({
+      weight: editProfile.weight || '0', height: editProfile.height || '0',
+      age: editProfile.age || 0, gender: editProfile.gender || 'Hombre',
+      skinfolds: (editProfile.measurements as any)?.skinfolds,
+      perimeters: (editProfile.measurements as any)?.perimeters,
+      diameters: (editProfile.measurements as any)?.diameters,
+    })
+
+    const measurementsWithResults = {
+      ...(editProfile.measurements || {}),
+      ...(results ? { results } : {}),
+    }
+
     const { error } = await db.from('profiles').update({
       full_name: editProfile.full_name, weight: editProfile.weight, height: editProfile.height,
       age: editProfile.age, gender: editProfile.gender, experience_level: editProfile.experience_level,
       training_days: editProfile.training_days, injuries: editProfile.injuries,
       diet_style: editProfile.diet_style, focus_areas: editProfile.focus_areas,
-      measurements: editProfile.measurements || null,
+      measurements: measurementsWithResults,
+      updated_at: new Date().toISOString(),
     }).eq('id', selectedUser.id)
+
+    if (!error) {
+      // Registrar en historial de medidas físicas
+      const hasSkinfolds = Object.values((editProfile.measurements as any)?.skinfolds || {}).some((v: any) => parseFloat(v) > 0)
+      if (hasSkinfolds || parseFloat(String(editProfile.weight)) > 0) {
+        await db.from('body_stats_history').insert([{
+          user_id: selectedUser.id,
+          weight: parseFloat(String(editProfile.weight)) || 0,
+          measurements: {
+            skinfolds: (editProfile.measurements as any)?.skinfolds || {},
+            perimeters: (editProfile.measurements as any)?.perimeters || {},
+            results: results || {},
+          },
+          date: new Date().toISOString(),
+        }])
+      }
+    }
+
     setSaving(false)
-    error ? toast(error.message, true) : toast('Perfil guardado')
+    error ? toast(error.message, true) : toast('✓ Perfil y medidas guardadas en historial')
   }
 
   // ── Credentials ───────────────────────────────────────────────────────────
