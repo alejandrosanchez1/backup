@@ -50,6 +50,49 @@ const translations = {
 const MUSCLE_OPTIONS = ['chest', 'back', 'shoulders', 'upper arms', 'upper legs', 'waist', 'cardio'];
 const FOCUS_OPTIONS = ['Hipertrofia', 'Fuerza', 'Pérdida de Grasa', 'Resistencia', 'Salud'];
 
+// ── Sparkline SVG component ───────────────────────────────────────────────────
+function SparkLine({ data, color, unit, invertGood = false }: { data: { date: string; value: number }[]; color: string; unit: string; invertGood?: boolean }) {
+  if (data.length < 2) return null;
+  const values = data.map(d => d.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const W = 280; const H = 48; const pad = 4;
+  const points = data.map((d, i) => {
+    const x = pad + (i / (data.length - 1)) * (W - pad * 2);
+    const y = H - pad - ((d.value - min) / range) * (H - pad * 2);
+    return `${x},${y}`;
+  }).join(' ');
+  const first = values[0]; const last = values[values.length - 1];
+  const change = +(last - first).toFixed(1);
+  const isImproved = invertGood ? change < 0 : change > 0;
+  const changeColor = change === 0 ? '#6B7895' : isImproved ? '#00E5A8' : '#f87171';
+  const lastX = pad + ((data.length - 1) / (data.length - 1)) * (W - pad * 2);
+  const lastY = H - pad - ((last - min) / range) * (H - pad * 2);
+  const dates = data.map(d => new Date(d.date));
+  const firstLabel = dates[0].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+  const lastLabel = dates[dates.length - 1].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+  return (
+    <div className="space-y-1">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 52 }}>
+        <defs>
+          <linearGradient id={`sg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
+        <polyline fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={points} opacity="0.9" />
+        <circle cx={lastX} cy={lastY} r="3" fill={color} />
+      </svg>
+      <div className="flex justify-between items-center">
+        <span className="text-[9px]" style={{ color: '#6B7895' }}>{firstLabel} · {first}{unit}</span>
+        <span className="text-[9px] font-black" style={{ color: changeColor }}>{change > 0 ? '+' : ''}{change}{unit}</span>
+        <span className="text-[9px]" style={{ color: '#6B7895' }}>{lastLabel} · {last}{unit}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function GymProApp() {
   const [lang, setLang] = useState<'es' | 'en'>('es');
   const t = (key: keyof typeof translations['es']) => translations[lang][key] || key;
@@ -250,7 +293,7 @@ export default function GymProApp() {
       fetchHistory();
     }
     if (currentView === 'home' || currentView === 'routines' || currentView === 'myRoutines') fetchRoutines(user.id);
-    if (currentView === 'progress') fetchBodyStats();
+    if (currentView === 'progress' || currentView === 'home') fetchBodyStats();
   }, [user, currentView]);
 
   // ── Init workout data when routine selected ───────────────────────────────
@@ -623,16 +666,26 @@ useEffect(() => {
   };
 
   const saveWithHistory = async () => {
+    if (!user) return;
     setIsSaving(true);
-    await saveProfile(); 
+    await supabase.from('profiles').upsert({
+      id: user.id, full_name: userStats.name, weight: userStats.weight, height: userStats.height,
+      age: parseInt(userStats.age), gender: userStats.gender, focus_areas: userStats.focus,
+      diet_style: userStats.dietStyle, injuries: userStats.injuries,
+      experience_level: userStats.experienceLevel, training_days: parseInt(userStats.trainingDays) || 3,
+      measurements: { diameters: userStats.diameters, skinfolds: userStats.skinfolds, perimeters: userStats.perimeters, results: userStats.results },
+      updated_at: new Date().toISOString()
+    });
     await supabase.from('body_stats_history').insert([{
       user_id: user.id,
       weight: parseFloat(userStats.weight),
       measurements: { skinfolds: userStats.skinfolds, perimeters: userStats.perimeters, results: userStats.results },
       date: new Date().toISOString()
     }]);
+    await fetchBodyStats();
     setIsSaving(false);
-  };  
+    Toast.show({ text: '✓ Medidas registradas en historial' });
+  };
 
   const handleLogin = async () => {
     if (!authEmail || !authPass) return alert("Ingresa credenciales");
@@ -817,6 +870,8 @@ useEffect(() => {
 
     const cur = thisEntries[thisEntries.length - 1];
     const prv = prevEntries[prevEntries.length - 1];
+    const firstEntry = bodyStatsHistory[0];
+    const latestEntry = bodyStatsHistory[bodyStatsHistory.length - 1];
 
     const diff = (a: number | null | undefined, b: number | null | undefined) => {
       if (a == null || b == null) return null;
@@ -831,10 +886,32 @@ useEffect(() => {
     const curFat = +(cur?.measurements?.results?.fatPercentage ?? userStats.results?.fatPercentage ?? 0);
     const prvFat = prv?.measurements?.results?.fatPercentage ? +prv.measurements.results.fatPercentage : null;
 
+    // Overall: desde la primera hasta la última medición
+    const latestWeight = latestEntry?.weight ?? parseFloat(userStats.weight) ?? 0;
+    const firstWeight  = firstEntry?.weight ?? null;
+    const latestFat    = +(latestEntry?.measurements?.results?.fatPercentage ?? userStats.results?.fatPercentage ?? 0);
+    const firstFat     = firstEntry?.measurements?.results?.fatPercentage != null ? +firstEntry.measurements.results.fatPercentage : null;
+    const latestMuscle = +(latestEntry?.measurements?.results?.muscleMass ?? userStats.results?.muscleMass ?? 0);
+    const firstMuscle  = firstEntry?.measurements?.results?.muscleMass != null ? +firstEntry.measurements.results.muscleMass : null;
+
+    // Series históricas para sparklines
+    const weightHistory  = bodyStatsHistory.filter((e: any) => e.weight > 0).map((e: any) => ({ date: e.date, value: +e.weight }));
+    const fatHistory     = bodyStatsHistory.filter((e: any) => e.measurements?.results?.fatPercentage > 0).map((e: any) => ({ date: e.date, value: +(+e.measurements.results.fatPercentage).toFixed(1) }));
+    const muscleHistory  = bodyStatsHistory.filter((e: any) => e.measurements?.results?.muscleMass > 0).map((e: any) => ({ date: e.date, value: +(+e.measurements.results.muscleMass).toFixed(1) }));
+
     return {
       weight: { cur: curWeight, diff: diff(curWeight, prvWeight) },
       bmi: { cur: curBmi, diff: diff(curBmi, prvBmi) },
       fat: { cur: curFat, diff: diff(curFat, prvFat) },
+      totalRecords: bodyStatsHistory.length,
+      overall: {
+        weightChange: diff(latestWeight, firstWeight),
+        fatChange: diff(latestFat, firstFat),
+        muscleChange: diff(latestMuscle, firstMuscle),
+      },
+      weightHistory,
+      fatHistory,
+      muscleHistory,
     };
   }, [bodyStatsHistory, userStats]);
 
@@ -1327,28 +1404,95 @@ useEffect(() => {
               </div>
 
               {/* ── PROGRESO FÍSICO ─── */}
-              <div className="p-5 rounded-[20px] space-y-3" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h2 className="text-xs font-black uppercase flex items-center gap-2" style={{ color: '#a78bfa' }}>
-                  <Scale size={14}/> Progreso Físico
-                </h2>
-                <p className="text-[9px] uppercase font-bold" style={{ color: '#6B7895' }}>Cambio vs mes anterior</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Peso', cur: physicalProgress.weight.cur, diff: physicalProgress.weight.diff, unit: 'kg', color: '#60a5fa' },
-                    { label: 'IMC', cur: physicalProgress.bmi.cur, diff: physicalProgress.bmi.diff, unit: '', color: '#a78bfa' },
-                    { label: '% Grasa', cur: physicalProgress.fat.cur, diff: physicalProgress.fat.diff, unit: '%', color: '#f87171' },
-                  ].map(({ label, cur, diff, unit, color }) => (
-                    <div key={label} className="p-3 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="text-[8px] uppercase font-bold mb-1" style={{ color: '#6B7895' }}>{label}</p>
-                      <p className="text-lg font-black" style={{ color }}>{cur || '—'}<span className="text-[9px]">{unit}</span></p>
-                      {diff ? (
-                        <p className="text-[9px] font-bold mt-0.5" style={{ color: diff.startsWith('-') ? '#f87171' : '#00E5A8' }}>{diff}{unit}</p>
-                      ) : (
-                        <p className="text-[9px] mt-0.5" style={{ color: '#6B7895' }}>sin datos</p>
-                      )}
-                    </div>
-                  ))}
+              <div className="p-5 rounded-[20px] space-y-4" style={{ background: 'rgba(18,26,42,0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-black uppercase flex items-center gap-2" style={{ color: '#a78bfa' }}>
+                    <Scale size={14}/> Progreso Físico
+                  </h2>
+                  {physicalProgress.totalRecords > 0 && (
+                    <span className="text-[9px] font-black px-2 py-1 rounded-lg" style={{ background: 'rgba(167,139,250,0.12)', color: '#a78bfa' }}>
+                      {physicalProgress.totalRecords} {physicalProgress.totalRecords === 1 ? 'medición' : 'mediciones'}
+                    </span>
+                  )}
                 </div>
+
+                {/* Mes actual */}
+                <div>
+                  <p className="text-[9px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Cambio vs mes anterior</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Peso', cur: physicalProgress.weight.cur, diff: physicalProgress.weight.diff, unit: 'kg', color: '#60a5fa' },
+                      { label: 'IMC', cur: physicalProgress.bmi.cur, diff: physicalProgress.bmi.diff, unit: '', color: '#a78bfa' },
+                      { label: '% Grasa', cur: physicalProgress.fat.cur, diff: physicalProgress.fat.diff, unit: '%', color: '#f87171' },
+                    ].map(({ label, cur, diff, unit, color }) => (
+                      <div key={label} className="p-3 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <p className="text-[8px] uppercase font-bold mb-1" style={{ color: '#6B7895' }}>{label}</p>
+                        <p className="text-lg font-black" style={{ color }}>{cur || '—'}<span className="text-[9px]">{unit}</span></p>
+                        {diff ? (
+                          <p className="text-[9px] font-bold mt-0.5" style={{ color: diff.startsWith('-') ? '#f87171' : '#00E5A8' }}>{diff}{unit}</p>
+                        ) : (
+                          <p className="text-[9px] mt-0.5" style={{ color: '#6B7895' }}>sin datos</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Progreso total desde el inicio */}
+                {physicalProgress.totalRecords >= 2 && (
+                  <div>
+                    <p className="text-[9px] uppercase font-bold mb-2" style={{ color: '#6B7895' }}>Desde el inicio</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Peso', change: physicalProgress.overall.weightChange, unit: 'kg', invertGood: false },
+                        { label: '% Grasa', change: physicalProgress.overall.fatChange, unit: '%', invertGood: true },
+                        { label: 'Masa Magra', change: physicalProgress.overall.muscleChange, unit: 'kg', invertGood: false },
+                      ].map(({ label, change, unit, invertGood }) => {
+                        const isPos = change?.startsWith('+');
+                        const isGood = invertGood ? !isPos : isPos;
+                        return (
+                          <div key={label} className="p-3 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <p className="text-[8px] uppercase font-bold mb-1" style={{ color: '#6B7895' }}>{label}</p>
+                            {change && change !== '+0' && change !== '0' ? (
+                              <>
+                                <p className="text-sm font-black" style={{ color: isGood ? '#00E5A8' : '#f87171' }}>{change}{unit}</p>
+                                <p className="text-[8px] mt-0.5" style={{ color: isGood ? '#00E5A8' : '#f87171' }}>{isGood ? '↑ mejora' : '↓ revisar'}</p>
+                              </>
+                            ) : (
+                              <p className="text-sm font-black" style={{ color: '#6B7895' }}>—</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Gráficas de tendencia */}
+                {physicalProgress.weightHistory.length >= 2 && (
+                  <div className="space-y-1">
+                    <p className="text-[9px] uppercase font-bold" style={{ color: '#6B7895' }}>Evolución del Peso</p>
+                    <SparkLine data={physicalProgress.weightHistory} color="#60a5fa" unit="kg" />
+                  </div>
+                )}
+                {physicalProgress.fatHistory.length >= 2 && (
+                  <div className="space-y-1">
+                    <p className="text-[9px] uppercase font-bold" style={{ color: '#6B7895' }}>Evolución % Grasa</p>
+                    <SparkLine data={physicalProgress.fatHistory} color="#f87171" unit="%" invertGood />
+                  </div>
+                )}
+                {physicalProgress.muscleHistory.length >= 2 && (
+                  <div className="space-y-1">
+                    <p className="text-[9px] uppercase font-bold" style={{ color: '#6B7895' }}>Evolución Masa Magra</p>
+                    <SparkLine data={physicalProgress.muscleHistory} color="#00E5A8" unit="kg" />
+                  </div>
+                )}
+
+                {physicalProgress.totalRecords === 0 && (
+                  <div className="text-center py-4">
+                    <p className="text-[10px]" style={{ color: '#6B7895' }}>Ve a <span style={{ color: '#a78bfa' }}>Ajustes → Antropometría</span> y pulsa <span style={{ color: '#a78bfa' }}>Registrar</span> para guardar tu primera medición.</p>
+                  </div>
+                )}
               </div>
 
               {/* ── RENDIMIENTO / PRs ─── */}
@@ -1496,11 +1640,12 @@ useEffect(() => {
                     </button>
                     {activeSettingsTab !== 'rutinas' && (
                       <button
-                        onClick={saveProfile} disabled={isSaving}
+                        onClick={activeSettingsTab === 'antropometria' ? saveWithHistory : saveProfile}
+                        disabled={isSaving}
                         className="px-5 py-2.5 rounded-2xl font-black text-xs uppercase text-white flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                        style={{ background: 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: '0 4px 16px rgba(0,229,168,0.35)' }}
+                        style={{ background: activeSettingsTab === 'antropometria' ? 'linear-gradient(135deg,#a78bfa,#7c3aed)' : 'linear-gradient(135deg,#00E5A8,#00C2FF)', boxShadow: activeSettingsTab === 'antropometria' ? '0 4px 16px rgba(167,139,250,0.35)' : '0 4px 16px rgba(0,229,168,0.35)' }}
                       >
-                        <Save size={15}/> {isSaving ? '...' : t('save')}
+                        <Save size={15}/> {isSaving ? '...' : activeSettingsTab === 'antropometria' ? 'Registrar' : t('save')}
                       </button>
                     )}
                   </div>
