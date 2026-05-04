@@ -189,6 +189,11 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
   const searchRef                           = useRef<HTMLInputElement>(null)
   const exSearchIdRef                       = useRef(0)
 
+  // Replicate routine
+  const [replicateRoutineId, setReplicateRoutineId] = useState<string|null>(null)
+  const [replicateTargetUserId, setReplicateTargetUserId] = useState('')
+  const [replicating, setReplicating] = useState(false)
+
   // ── Credentials ──────────────────────────────────────────────────────────
   const [newPassword, setNewPassword]         = useState('')
   const [showPassword, setShowPassword]       = useState(false)
@@ -676,6 +681,35 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
     setRoutines(prev => prev.filter(r => r.id !== id))
     if (selectedRoutine?.id === id) setSelectedRoutine(null)
     toast('Rutina eliminada')
+  }
+
+  const replicateRoutine = async () => {
+    if (!replicateRoutineId || !replicateTargetUserId) return
+    setReplicating(true)
+    try {
+      const routine = routines.find(r => r.id === replicateRoutineId)
+      if (!routine) return
+      const { data: exData } = await db.from('routine_exercises')
+        .select('exercise_id, sets, reps, rest_time, order')
+        .eq('routine_id', replicateRoutineId)
+        .order('order')
+      const { data: newRoutine, error } = await db.from('routines')
+        .insert([{ user_id: replicateTargetUserId, name: routine.name }])
+        .select().single()
+      if (error || !newRoutine) throw error
+      if (exData && exData.length > 0) {
+        await db.from('routine_exercises').insert(
+          exData.map((e: any) => ({ ...e, routine_id: newRoutine.id }))
+        )
+      }
+      setReplicateRoutineId(null)
+      setReplicateTargetUserId('')
+      toast('Rutina replicada correctamente')
+    } catch {
+      toast('Error al replicar la rutina', true)
+    } finally {
+      setReplicating(false)
+    }
   }
 
   // ── Exercise search ───────────────────────────────────────────────────────
@@ -2281,9 +2315,10 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                   Rutinas · {routines.length}
                 </p>
                 {routines.map((routine, idx) => (
-                  <button key={routine.id} onClick={() => openRoutine(routine)}
-                    className="w-full flex items-center justify-between gap-3 p-4 rounded-[20px] text-left transition-all active:scale-[0.98]"
-                    style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.06)', animation:`fadeUp 0.3s ease-out ${idx*0.05}s both` } as React.CSSProperties}>
+                  <div key={routine.id}
+                    className="w-full flex items-center justify-between gap-3 p-4 rounded-[20px] transition-all active:scale-[0.98] cursor-pointer"
+                    style={{ background:'rgba(18,26,42,0.9)', border:'1px solid rgba(255,255,255,0.06)', animation:`fadeUp 0.3s ease-out ${idx*0.05}s both` } as React.CSSProperties}
+                    onClick={() => openRoutine(routine)}>
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                         style={{ background:'rgba(0,229,168,0.1)', border:'1px solid rgba(0,229,168,0.2)' }}>
@@ -2296,8 +2331,17 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
                         </p>
                       </div>
                     </div>
-                    <ChevronRight size={16} style={{ color:'#6B7895', flexShrink:0 }} />
-                  </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={e => { e.stopPropagation(); setReplicateRoutineId(routine.id); setReplicateTargetUserId('') }}
+                        className="w-8 h-8 flex items-center justify-center rounded-xl transition-all active:scale-95"
+                        style={{ background:'rgba(0,194,255,0.1)', border:'1px solid rgba(0,194,255,0.2)' }}
+                        title="Replicar a otro usuario">
+                        <Copy size={13} style={{ color:'#00C2FF' }} />
+                      </button>
+                      <ChevronRight size={16} style={{ color:'#6B7895' }} />
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -3291,6 +3335,52 @@ export default function AdminView({ supabase, currentUserId, currentUserRole }: 
             </a>
           )}
 
+        </div>
+      )}
+
+      {/* REPLICATE ROUTINE MODAL */}
+      {replicateRoutineId && (
+        <div className="fixed inset-0 z-[1500] flex items-end justify-center p-4 pb-8" style={{ background:'rgba(11,18,32,0.85)', backdropFilter:'blur(16px)' }}
+          onClick={() => { setReplicateRoutineId(null); setReplicateTargetUserId('') }}>
+          <div className="w-full max-w-sm rounded-[24px] p-6 space-y-5"
+            style={{ background:'rgba(18,26,42,0.98)', border:'1px solid rgba(255,255,255,0.07)', boxShadow:'0 20px 60px rgba(0,0,0,0.6)', animation:'fadeUp 0.35s ease-out both' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color:'#00C2FF' }}>Rutinas</p>
+                <h2 className="text-lg font-black uppercase text-white">Replicar rutina</h2>
+                <p className="text-[11px] mt-0.5" style={{ color:'#6B7895' }}>
+                  {routines.find(r => r.id === replicateRoutineId)?.name}
+                </p>
+              </div>
+              <button onClick={() => { setReplicateRoutineId(null); setReplicateTargetUserId('') }}
+                className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                <X size={16} style={{ color:'#A8B3CF' }} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color:'#6B7895' }}>Selecciona el destinatario</p>
+              <select
+                value={replicateTargetUserId}
+                onChange={e => setReplicateTargetUserId(e.target.value)}
+                className="w-full rounded-xl px-3 py-3 text-sm font-bold text-white outline-none"
+                style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                <option value="">— Elige un usuario —</option>
+                {users.filter(u => u.id !== selectedUser?.id).map(u => (
+                  <option key={u.id} value={u.id}>{u.full_name || u.email || u.id}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={replicateRoutine}
+              disabled={!replicateTargetUserId || replicating}
+              className="w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all active:scale-[0.97] flex items-center justify-center gap-2"
+              style={{ background: !replicateTargetUserId || replicating ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg,#00C2FF,#00E5A8)', color: !replicateTargetUserId || replicating ? '#6B7895' : '#0a1220', boxShadow: !replicateTargetUserId || replicating ? 'none' : '0 4px 16px rgba(0,194,255,0.3)' }}>
+              {replicating ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
+              {replicating ? 'Replicando...' : 'Replicar rutina'}
+            </button>
+          </div>
         </div>
       )}
 
